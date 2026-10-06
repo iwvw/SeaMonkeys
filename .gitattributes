@@ -1,0 +1,30 @@
+# Windows 项目：文本文件仓库内 LF、检出 CRLF，避免噪声 diff。
+* text=auto eol=crlf
+
+*.cs text eol=crlf
+*.xaml text eol=crlf
+*.csproj text eol=crlf
+*.slnx text eol=crlf
+*.json text eol=crlf
+*.md text eol=crlf
+*.xml text eol=crlf
+*.manifest text eol=crlf
+*.props text eol=crlf
+*.targets text eol=crlf
+*.iss text eol=crlf
+*.ps1 text eol=crlf
+
+# CI 配置与脚本保持 LF。
+*.yml text eol=lf
+*.yaml text eol=lf
+*.sh text eol=lf
+
+# 二进制资源不转换。
+*.png binary
+*.ico binary
+*.jpg binary
+*.gif binary
+*.webp binary
+*.exe binary
+*.dll binary
+*.pdb binary
