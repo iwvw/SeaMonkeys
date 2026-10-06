@@ -1,0 +1,15 @@
+<Project>
+
+  <PropertyGroup>
+    <SeaMonkeysVersion Condition="'$(SeaMonkeysVersion)' == ''">0.1.0</SeaMonkeysVersion>
+    <VersionPrefix Condition="'$(VersionPrefix)' == ''">$(SeaMonkeysVersion)</VersionPrefix>
+    <Version Condition="'$(Version)' == ''">$(VersionPrefix)</Version>
+    <Product>SeaMonkeys</Product>
+    <Authors>DSUK</Authors>
+    <Company>DSUK</Company>
+    <Copyright>Copyright © 2026 DSUK</Copyright>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/iwvw/SeaMonkeys</RepositoryUrl>
+  </PropertyGroup>
+
+</Project>

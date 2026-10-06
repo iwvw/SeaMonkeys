@@ -1,0 +1,94 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<Page
+    x:Class="SeaMonkeys.App.Pages.BattlePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+    <Grid Padding="16,12,16,12">
+        <Grid Grid.Row="1" ColumnSpacing="12">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Column="0" RowSpacing="6">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="12,8">
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2.2*" />
+                            <ColumnDefinition Width="1.4*" />
+                            <ColumnDefinition Width="1.4*" />
+                            <ColumnDefinition Width="1.0*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="AllyTeamLabel" Grid.Column="0" VerticalAlignment="Center" FontSize="22" FontWeight="Bold" Foreground="{ThemeResource SystemFillColorSuccessBrush}" Text="友军" />
+                        <StackPanel Grid.Column="1" Spacing="1">
+                            <TextBlock FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="平均场次" />
+                            <TextBlock x:Name="AllyAvgBattlesText" FontSize="13" FontWeight="SemiBold"
+                                       Text="{x:Bind State.AllyAvgBattles, Mode=OneWay}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Spacing="1">
+                            <TextBlock FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="平均胜率" />
+                            <TextBlock x:Name="AllyAvgWinrateText" FontSize="13" FontWeight="SemiBold"
+                                       Text="{x:Bind State.AllyAvgWinrate, Mode=OneWay}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="3" Spacing="1">
+                            <TextBlock FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="加权胜率" />
+                            <TextBlock x:Name="AllyAvgWeightedText" FontSize="13" FontWeight="SemiBold"
+                                       Text="{x:Bind State.AllyAvgWeighted, Mode=OneWay}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                <Grid x:Name="AlliesGrid" Grid.Row="1" RowSpacing="6" />
+            </Grid>
+
+            <Grid Grid.Column="1" RowSpacing="6">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+                <Border Grid.Row="0"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+                        BorderThickness="1" CornerRadius="8" Padding="12,8">
+                    <Grid ColumnSpacing="10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="2.2*" />
+                            <ColumnDefinition Width="1.4*" />
+                            <ColumnDefinition Width="1.4*" />
+                            <ColumnDefinition Width="1.0*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="EnemyTeamLabel" Grid.Column="0" VerticalAlignment="Center" FontSize="22" FontWeight="Bold" Foreground="{ThemeResource SystemFillColorCriticalBrush}" Text="敌军" />
+                        <StackPanel Grid.Column="1" Spacing="1">
+                            <TextBlock FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="平均场次" />
+                            <TextBlock x:Name="EnemyAvgBattlesText" FontSize="13" FontWeight="SemiBold"
+                                       Text="{x:Bind State.EnemyAvgBattles, Mode=OneWay}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Spacing="1">
+                            <TextBlock FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="平均胜率" />
+                            <TextBlock x:Name="EnemyAvgWinrateText" FontSize="13" FontWeight="SemiBold"
+                                       Text="{x:Bind State.EnemyAvgWinrate, Mode=OneWay}" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="3" Spacing="1">
+                            <TextBlock FontSize="10" Foreground="{ThemeResource TextFillColorTertiaryBrush}" Text="加权胜率" />
+                            <TextBlock x:Name="EnemyAvgWeightedText" FontSize="13" FontWeight="SemiBold"
+                                       Text="{x:Bind State.EnemyAvgWeighted, Mode=OneWay}" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
+                <Grid x:Name="EnemiesGrid" Grid.Row="1" RowSpacing="6" />
+            </Grid>
+        </Grid>
+    </Grid>
+</Page>
+
+

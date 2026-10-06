@@ -1,0 +1,123 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+    <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
+    <RootNamespace>SeaMonkeys.App</RootNamespace>
+    <AssemblyName>SeaMonkeys</AssemblyName>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\AppIcon.ico</ApplicationIcon>
+    <Platforms>x64;ARM64</Platforms>
+    <RuntimeIdentifiers>win-x64;win-arm64</RuntimeIdentifiers>
+    <RuntimeIdentifier Condition="'$(RuntimeIdentifier)' == ''">win-x64</RuntimeIdentifier>
+    <UseWinUI>true</UseWinUI>
+    <WindowsPackageType>None</WindowsPackageType>
+    <!-- 默认合并版（自包含）。传 -p:SeaMonkeysSelfContained=false 出分离版（框架依赖，体积更小）。 -->
+    <SeaMonkeysSelfContained Condition="'$(SeaMonkeysSelfContained)' == ''">true</SeaMonkeysSelfContained>
+    <SelfContained>$(SeaMonkeysSelfContained)</SelfContained>
+    <WindowsAppSDKSelfContained>$(SeaMonkeysSelfContained)</WindowsAppSDKSelfContained>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <LangVersion>preview</LangVersion>
+    <DefineConstants>$(DefineConstants);DISABLE_XAML_GENERATED_MAIN</DefineConstants>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <PublishTrimmed>false</PublishTrimmed>
+    <PublishReadyToRun>false</PublishReadyToRun>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.WindowsAppSDK" Version="2.2.0" />
+    <!-- WindowsAppSDK 元包强拉 AI/ML/Widgets（onnxruntime + DirectML 约 45MB），本应用不用。
+         直接引用 + ExcludeAssets=all 覆盖传递引用，避免打进输出。 -->
+    <PackageReference Include="Microsoft.WindowsAppSDK.AI" Version="2.2.3" ExcludeAssets="all" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.ML" Version="2.1.70" ExcludeAssets="all" />
+    <PackageReference Include="Microsoft.WindowsAppSDK.Widgets" Version="2.0.5" ExcludeAssets="all" />
+    <PackageReference Include="Microsoft.Windows.AI.MachineLearning" Version="2.1.70" ExcludeAssets="all" />
+    <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="10.0.26100.4654" />
+    <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.251219" />
+    <PackageReference Include="CommunityToolkit.WinUI.Converters" Version="8.2.250402" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SeaMonkeys.Core\SeaMonkeys.Core.csproj" />
+  </ItemGroup>
+
+  <!-- 只保留中英文卫星资源程序集，去掉其余 70+ 语言目录。 -->
+  <PropertyGroup>
+    <SatelliteResourceLanguages>zh-Hans;zh-Hant;en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Content Include="Assets\AppIcon.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\AppIcon.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\ships.json" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\ships\*.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\battles\*.png" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\stamps\*.png" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Manifest Include="$(ApplicationManifest)" />
+  </ItemGroup>
+
+  <!-- 构建/发布后删除运行期不需要的运行时组件：AI/ML、Widgets、WebView2、
+       调试器与转储、多余语言目录等。 -->
+  <Target Name="RemoveUnusedRuntimeDlls" AfterTargets="Build;Publish">
+    <ItemGroup>
+      <UnusedDll Include="$(OutDir)onnxruntime.dll" />
+      <UnusedDll Include="$(OutDir)DirectML.dll" />
+      <UnusedDll Include="$(OutDir)NPUDetect.dll" />
+      <UnusedDll Include="$(OutDir)PerceptiveStreaming.dll" />
+      <UnusedDll Include="$(OutDir)Microsoft.Windows.Widgets.dll" />
+      <UnusedDll Include="$(OutDir)Microsoft.Windows.Widgets.Projection.dll" />
+      <UnusedDll Include="$(OutDir)Microsoft.Windows.Widgets.winmd" />
+      <UnusedDll Include="$(OutDir)Microsoft.Windows.AI*.dll" />
+      <UnusedDll Include="$(OutDir)Microsoft.Windows.AI*.winmd" />
+      <UnusedDll Include="$(OutDir)Microsoft.Windows.Internal.AI*.winmd" />
+      <UnusedDll Include="$(OutDir)Microsoft.Windows.Vision*.dll" />
+      <UnusedDll Include="$(OutDir)Microsoft.Windows.Vision*.winmd" />
+      <UnusedDll Include="$(OutDir)Microsoft.Windows.Internal.Vision*.winmd" />
+      <UnusedDll Include="$(OutDir)Microsoft.Windows.SemanticSearch*.dll" />
+      <UnusedDll Include="$(OutDir)Microsoft.Windows.SemanticSearch*.winmd" />
+      <UnusedDll Include="$(OutDir)Microsoft.Windows.Workloads*.dll" />
+      <UnusedDll Include="$(OutDir)Microsoft.Windows.Workloads*.winmd" />
+      <UnusedDll Include="$(OutDir)Microsoft.Windows.Workloads.pri" />
+      <UnusedDll Include="$(OutDir)workloads.*.json" />
+      <UnusedDll Include="$(OutDir)Microsoft.Web.WebView2*.dll" />
+      <UnusedDll Include="$(OutDir)WebView2Loader.dll" />
+      <UnusedDll Include="$(OutDir)mscordaccore*.dll" />
+      <UnusedDll Include="$(OutDir)mscordbi.dll" />
+      <UnusedDll Include="$(OutDir)createdump.exe" />
+      <UnusedDll Include="$(OutDir)RestartAgent.exe" />
+      <UnusedDll Include="$(OutDir)Microsoft.DiaSymReader.Native.amd64.dll" />
+      <UnusedDll Include="$(PublishDir)onnxruntime.dll" />
+      <UnusedDll Include="$(PublishDir)DirectML.dll" />
+      <UnusedDll Include="$(PublishDir)NPUDetect.dll" />
+      <UnusedDll Include="$(PublishDir)PerceptiveStreaming.dll" />
+      <UnusedDll Include="$(PublishDir)Microsoft.Windows.Widgets*.dll" />
+      <UnusedDll Include="$(PublishDir)Microsoft.Windows.Widgets*.winmd" />
+      <UnusedDll Include="$(PublishDir)Microsoft.Windows.AI*.dll" />
+      <UnusedDll Include="$(PublishDir)Microsoft.Windows.AI*.winmd" />
+      <UnusedDll Include="$(PublishDir)Microsoft.Windows.Vision*.dll" />
+      <UnusedDll Include="$(PublishDir)Microsoft.Windows.Vision*.winmd" />
+      <UnusedDll Include="$(PublishDir)Microsoft.Windows.SemanticSearch*.dll" />
+      <UnusedDll Include="$(PublishDir)Microsoft.Windows.SemanticSearch*.winmd" />
+      <UnusedDll Include="$(PublishDir)Microsoft.Windows.Workloads*.dll" />
+      <UnusedDll Include="$(PublishDir)Microsoft.Windows.Workloads*.winmd" />
+      <UnusedDll Include="$(PublishDir)workloads.*.json" />
+      <UnusedDll Include="$(PublishDir)Microsoft.Web.WebView2*.dll" />
+      <UnusedDll Include="$(PublishDir)WebView2Loader.dll" />
+      <UnusedDll Include="$(PublishDir)mscordaccore*.dll" />
+      <UnusedDll Include="$(PublishDir)mscordbi.dll" />
+      <UnusedDll Include="$(PublishDir)createdump.exe" />
+      <UnusedDll Include="$(PublishDir)RestartAgent.exe" />
+    </ItemGroup>
+    <Delete Files="@(UnusedDll)" ContinueOnError="true" />
+
+    <!-- 语言目录只保留中英文（含 az-Latn-AZ、sr-Cyrl-RS 这类多子标签）。 -->
+    <Exec Command="powershell -NoProfile -Command &quot;foreach ($d in @('$(OutDir)','$(PublishDir)')) { if (Test-Path -LiteralPath $d) { $keep=@('zh-CN','zh-Hans','zh-Hant','en','en-us','en-US','en-GB'); Get-ChildItem -LiteralPath $d -Directory | Where-Object { $_.Name -match '^[a-z]{2,3}(-[A-Za-z0-9]+)+$' -and $keep -notcontains $_.Name } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue } }&quot;" ContinueOnError="true" />
+  </Target>
+
+</Project>

@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/SeaMonkeys.Core/SeaMonkeys.Core.csproj" />
+    <Project Path="src/SeaMonkeys.Data/SeaMonkeys.Data.csproj" />
+    <Project Path="src/SeaMonkeys.Probe/SeaMonkeys.Probe.csproj" />
+    <Project Path="src/SeaMonkeys.App/SeaMonkeys.App.csproj" />
+  </Folder>
+</Solution>
