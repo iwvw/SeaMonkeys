@@ -72,8 +72,9 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Directory.Build.props
           git commit -m "chore: release v$v [skip ci]" || Write-Host "无变更可提交"
-          git tag "v$v"
-          git push origin HEAD:${{ github.ref_name }} --tags
+          if (-not (git tag --list "v$v")) { git tag "v$v" } else { Write-Host "tag v$v 已存在，跳过" }
+          git push origin HEAD:${{ github.ref_name }}
+          git push origin "v$v"
 
   build:
     name: Build (${{ matrix.arch }})
