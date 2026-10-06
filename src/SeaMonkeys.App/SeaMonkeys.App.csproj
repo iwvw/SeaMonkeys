@@ -120,4 +120,29 @@
     <Exec Command="powershell -NoProfile -Command &quot;foreach ($d in @('$(OutDir)','$(PublishDir)')) { if (Test-Path -LiteralPath $d) { $keep=@('zh-CN','zh-Hans','zh-Hant','en','en-us','en-US','en-GB'); Get-ChildItem -LiteralPath $d -Directory | Where-Object { $_.Name -match '^[a-z]{2,3}(-[A-Za-z0-9]+)+$' -and $keep -notcontains $_.Name } | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue } }&quot;" ContinueOnError="true" />
   </Target>
 
+  <!-- publish 到自定义目录（-o / -p:PublishDir）会丢掉 WinUI 编译产物：SeaMonkeys.pri、
+       .xbf 页面片段与 Assets\。它们在 Build 阶段生成到 $(OutDir)，但不是 publish 项，
+       so 会导致发布包启动即崩（Microsoft.UI.Xaml.dll，0xc000027b）。这里从构建输出补拷。
+       必须在 RemoveUnusedRuntimeDlls 之后执行，避免被清理目标误删。 -->
+  <Target Name="CopyWinUIResourcesToPublish" AfterTargets="Publish;RemoveUnusedRuntimeDlls">
+    <Copy SourceFiles="$(OutDir)SeaMonkeys.pri" DestinationFolder="$(PublishDir)"
+          SkipUnchangedFiles="true" Condition="Exists('$(OutDir)SeaMonkeys.pri')" />
+
+    <!-- .xbf 片段保留页面子目录（Pages\、Controls\）。 -->
+    <ItemGroup>
+      <_XbfFragments Include="$(OutDir)**\*.xbf" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_XbfFragments)"
+          DestinationFiles="@(_XbfFragments->'$(PublishDir)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+
+    <!-- Assets\ 原样拷贝（图标、船名表、舰船/印章/战斗类型图片）。 -->
+    <ItemGroup>
+      <_AssetFiles Include="$(OutDir)Assets\**\*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_AssetFiles)"
+          DestinationFiles="@(_AssetFiles->'$(PublishDir)Assets\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+  </Target>
+
 </Project>
