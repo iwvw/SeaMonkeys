@@ -1,7 +1,7 @@
 <Project>
 
   <PropertyGroup>
-    <SeaMonkeysVersion Condition="'$(SeaMonkeysVersion)' == ''">0.3.0</SeaMonkeysVersion>
+    <SeaMonkeysVersion Condition="'$(SeaMonkeysVersion)' == ''">0.4.0</SeaMonkeysVersion>
     <VersionPrefix Condition="'$(VersionPrefix)' == ''">$(SeaMonkeysVersion)</VersionPrefix>
     <Version Condition="'$(Version)' == ''">$(VersionPrefix)</Version>
     <Product>SeaMonkeys</Product>
