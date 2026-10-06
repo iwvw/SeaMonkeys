@@ -19,6 +19,9 @@ public sealed class ShipTypeIconConverter : IValueConverter
 
     private static readonly Dictionary<string, ImageSource> Cache = new();
 
+    /// <summary>供代码侧复用的共享实例，避免每次转换都新建转换器。</summary>
+    public static ShipTypeIconConverter Shared { get; } = new();
+
     public static void Invalidate() => Cache.Clear();
 
     public object? Convert(object value, Type targetType, object parameter, string language)

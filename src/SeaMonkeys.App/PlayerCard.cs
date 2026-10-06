@@ -15,8 +15,14 @@ public sealed class PlayerCard : Grid
 {
     private static readonly Dictionary<string, Brush> BrushCache = new();
 
+    private static readonly Dictionary<string, ImageSource> StampCache = new();
+
     /// <summary>主题切换时清空缓存，避免沿用旧主题画刷。</summary>
-    public static void InvalidateBrushes() => BrushCache.Clear();
+    public static void InvalidateBrushes()
+    {
+        BrushCache.Clear();
+        GradientCache.Clear();
+    }
 
 
     /// <summary>由页面设置的行缩放系数，容器复用时按此渲染。</summary>
@@ -192,7 +198,7 @@ public sealed class PlayerCard : Grid
         // 观察名单高亮：命中时用状态色显示昵称并附图标。
         if (AppSettings.Current.HighlightWatchlist && row.Watch != WatchStatus.None)
         {
-            name.Foreground = new SolidColorBrush(WatchColor(row.Watch));
+            name.Foreground = WatchBrush(row.Watch);
             name.Text = $"{row.Name} {row.WatchLabel}";
         }
         else
@@ -248,7 +254,7 @@ public sealed class PlayerCard : Grid
         stamp.Visibility = stampFile is not null ? Visibility.Visible : Visibility.Collapsed;
         if (stampFile is not null)
         {
-            stamp.Source = new BitmapImage(new Uri($"ms-appx:///Assets/stamps/{stampFile}"));
+            stamp.Source = StampImage(stampFile);
             stamp.Width = 75 * s;
             stamp.Height = 75 * s;
             stamp.Margin = new Thickness(0, -14 * s, -12 * s, 0);
@@ -298,6 +304,20 @@ public sealed class PlayerCard : Grid
         }
     }
 
+
+    private static readonly Dictionary<WatchStatus, SolidColorBrush> WatchBrushCache = new();
+
+    private static SolidColorBrush WatchBrush(WatchStatus status)
+    {
+        if (WatchBrushCache.TryGetValue(status, out SolidColorBrush? cached))
+        {
+            return cached;
+        }
+
+        var brush = new SolidColorBrush(WatchColor(status));
+        WatchBrushCache[status] = brush;
+        return brush;
+    }
 
     private static Color WatchColor(WatchStatus status) => status switch
     {
@@ -461,8 +481,15 @@ public sealed class PlayerCard : Grid
         return SeaMonkeys.Core.Models.Server.Auto;
     }
 
+    private static readonly Dictionary<Color, LinearGradientBrush> GradientCache = new();
+
     private static LinearGradientBrush BuildGradient(Color c)
     {
+        if (GradientCache.TryGetValue(c, out LinearGradientBrush? cached))
+        {
+            return cached;
+        }
+
         double peak = Services.ThemeManager.IsDark ? 0x8C : 0xB4;
         var gradient = new LinearGradientBrush
         {
@@ -473,7 +500,21 @@ public sealed class PlayerCard : Grid
         gradient.GradientStops.Add(new GradientStop { Color = Color.FromArgb((byte)(peak * 0.45), c.R, c.G, c.B), Offset = 0.5 });
         gradient.GradientStops.Add(new GradientStop { Color = Color.FromArgb((byte)(peak * 0.12), c.R, c.G, c.B), Offset = 0.8 });
         gradient.GradientStops.Add(new GradientStop { Color = Color.FromArgb(0x00, c.R, c.G, c.B), Offset = 1.0 });
+        GradientCache[c] = gradient;
         return gradient;
+    }
+
+    /// <summary>印章图片按文件名缓存，避免每次重建都重新解码 PNG。</summary>
+    private static ImageSource StampImage(string file)
+    {
+        if (StampCache.TryGetValue(file, out ImageSource? cached))
+        {
+            return cached;
+        }
+
+        var image = new BitmapImage(new Uri($"ms-appx:///Assets/stamps/{file}"));
+        StampCache[file] = image;
+        return image;
     }
 
     private static TextBlock Text(double size, FontWeight weight, string? brushKey)
@@ -504,7 +545,7 @@ public sealed class PlayerCard : Grid
     }
 
     private static ImageSource? ShipIcon(string key)
-        => (ImageSource?)new ShipTypeIconConverter().Convert(key, typeof(ImageSource), null!, string.Empty);
+        => (ImageSource?)ShipTypeIconConverter.Shared.Convert(key, typeof(ImageSource), null!, string.Empty);
 
     private static double ShipAspect(string key) => key switch
     {
