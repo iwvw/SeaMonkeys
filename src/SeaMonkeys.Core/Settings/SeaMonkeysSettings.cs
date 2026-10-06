@@ -10,7 +10,7 @@ public sealed class SeaMonkeysSettings
     public Server SecondaryServer { get; set; } = Server.Auto;
     public string? ProxyBaseUrl { get; set; }
     public int RequestDelayMs { get; set; } = 20;
-    public int MaximumParallelRequests { get; set; } = 12;
+    public int MaximumParallelRequests { get; set; } = 64;
     public int RequestTimeoutSeconds { get; set; } = 20;
     public WeightedWinrateSettings WeightedWinrate { get; set; } = new();
 }

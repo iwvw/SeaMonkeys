@@ -56,6 +56,27 @@ public static class ServerExtensions
         }
     }
 
+    /// <summary>设置里服务器下拉框的索引：0=自动，1=亚服，2=欧服，3=美服，4=莱服，5=国服。</summary>
+    public static int ToSettingsIndex(this Server server) => server switch
+    {
+        Server.Asia => 1,
+        Server.Eu => 2,
+        Server.Na => 3,
+        Server.Ru => 4,
+        Server.Cn => 5,
+        _ => 0,
+    };
+
+    public static Server FromSettingsIndex(int index) => index switch
+    {
+        1 => Server.Asia,
+        2 => Server.Eu,
+        3 => Server.Na,
+        4 => Server.Ru,
+        5 => Server.Cn,
+        _ => Server.Auto,
+    };
+
     public static IReadOnlyList<Server> AllConcrete { get; } = new[]
     {
         Server.Ru, Server.Eu, Server.Na, Server.Asia, Server.Cn,

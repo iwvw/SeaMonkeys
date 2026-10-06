@@ -1,19 +1,16 @@
 using System.Globalization;
 using System.Text.Json;
 using SeaMonkeys.Core.Models;
-using SeaMonkeys.Core.Settings;
 
 namespace SeaMonkeys.Core.Vortex;
 
 public sealed class VortexStatsSource
 {
     private readonly IVortexTransport transport;
-    private readonly SeaMonkeysSettings settings;
 
-    public VortexStatsSource(IVortexTransport transport, SeaMonkeysSettings settings)
+    public VortexStatsSource(IVortexTransport transport)
     {
         this.transport = transport;
-        this.settings = settings;
     }
 
     public async Task<long> SearchAccountIdAsync(
@@ -24,7 +21,6 @@ public sealed class VortexStatsSource
         string host = server.ToVortexHost();
         string path = $"/api/accounts/search/{Uri.EscapeDataString(name)}";
         string body = await transport.GetAsync(transport.BuildUrl(host, path), cancellationToken);
-        await DelayAsync(cancellationToken);
 
         using JsonDocument document = JsonDocument.Parse(body);
         JsonElement root = document.RootElement;
@@ -64,7 +60,6 @@ public sealed class VortexStatsSource
         string id = accountId.ToString(CultureInfo.InvariantCulture);
         string path = $"/api/accounts/{id}/";
         string body = await transport.GetAsync(transport.BuildUrl(host, path), cancellationToken);
-        await DelayAsync(cancellationToken);
 
         using JsonDocument document = JsonDocument.Parse(body);
         JsonElement root = document.RootElement;
@@ -119,7 +114,6 @@ public sealed class VortexStatsSource
         string id = accountId.ToString(CultureInfo.InvariantCulture);
         string path = $"/api/accounts/{id}/clans/";
         string? body = await transport.GetOptionalAsync(transport.BuildUrl(host, path), cancellationToken);
-        await DelayAsync(cancellationToken);
 
         if (body is null)
         {
@@ -148,10 +142,17 @@ public sealed class VortexStatsSource
         string shipId,
         CancellationToken cancellationToken)
     {
-        ShipStatistics pvp = await GetShipModeAsync(server, accountId, shipId, "pvp", cancellationToken);
-        ShipStatistics solo = await GetShipModeAsync(server, accountId, shipId, "pvp_solo", cancellationToken);
-        ShipStatistics div2 = await GetShipModeAsync(server, accountId, shipId, "pvp_div2", cancellationToken);
-        ShipStatistics div3 = await GetShipModeAsync(server, accountId, shipId, "pvp_div3", cancellationToken);
+        Task<ShipStatistics> pvpTask = GetShipModeAsync(server, accountId, shipId, "pvp", cancellationToken);
+        Task<ShipStatistics> soloTask = GetShipModeAsync(server, accountId, shipId, "pvp_solo", cancellationToken);
+        Task<ShipStatistics> div2Task = GetShipModeAsync(server, accountId, shipId, "pvp_div2", cancellationToken);
+        Task<ShipStatistics> div3Task = GetShipModeAsync(server, accountId, shipId, "pvp_div3", cancellationToken);
+
+        await Task.WhenAll(pvpTask, soloTask, div2Task, div3Task);
+
+        ShipStatistics pvp = await pvpTask;
+        ShipStatistics solo = await soloTask;
+        ShipStatistics div2 = await div2Task;
+        ShipStatistics div3 = await div3Task;
 
         return new ShipStatistics(
             pvp.Battles, pvp.Wins, pvp.DamageDealt,
@@ -171,7 +172,6 @@ public sealed class VortexStatsSource
         string id = accountId.ToString(CultureInfo.InvariantCulture);
         string path = $"/api/accounts/{id}/ships/{shipId}/{mode}/";
         string body = await transport.GetAsync(transport.BuildUrl(host, path), cancellationToken);
-        await DelayAsync(cancellationToken);
 
         using JsonDocument document = JsonDocument.Parse(body);
         JsonElement root = document.RootElement;
@@ -190,13 +190,6 @@ public sealed class VortexStatsSource
             SumWinsFlat(modeElement),
             GetDouble(modeElement, "damage_dealt"),
             0, 0, 0, 0, 0, 0, 0, 0, 0);
-    }
-    private async Task DelayAsync(CancellationToken cancellationToken)
-    {
-        if (settings.RequestDelayMs > 0)
-        {
-            await Task.Delay(settings.RequestDelayMs, cancellationToken);
-        }
     }
 
     private static bool IsOk(JsonElement root)

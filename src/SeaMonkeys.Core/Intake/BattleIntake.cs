@@ -81,12 +81,10 @@ public sealed class BattleIntake
         IProgress<Participant>? onParticipantReady = null,
         CancellationToken cancellationToken = default)
     {
-        using var gate = new SemaphoreSlim(settings.MaximumParallelRequests);
         int completed = 0;
 
         var tasks = battle.Participants.Select(async participant =>
         {
-            await gate.WaitAsync(cancellationToken);
             try
             {
                 await EnrichParticipantAsync(participant, server, cancellationToken);
@@ -115,7 +113,6 @@ public sealed class BattleIntake
             }
             finally
             {
-                gate.Release();
                 progress?.Report(Interlocked.Increment(ref completed));
             }
         });
@@ -185,12 +182,17 @@ public sealed class BattleIntake
             return;
         }
 
-        participant.ClanTag = await source.GetClanTagAsync(server, accountId, cancellationToken);
-        ShipStatistics ship = await source.GetShipStatisticsAsync(
+        // 账号已就绪，公会标签与舰船战绩互不依赖，并行取。
+        Task<string?> clanTask = source.GetClanTagAsync(server, accountId, cancellationToken);
+        Task<ShipStatistics> shipTask = source.GetShipStatisticsAsync(
             server,
             accountId,
             participant.ShipId,
             cancellationToken);
+
+        await Task.WhenAll(clanTask, shipTask);
+        participant.ClanTag = await clanTask;
+        ShipStatistics ship = await shipTask;
 
         participant.Statistics = account with
         {

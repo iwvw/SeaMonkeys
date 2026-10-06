@@ -337,13 +337,30 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
             string mapLabel = MapCatalog.GetName(battle.MapId, battle.MapDisplayName);
             BattleTime = battle.StartTime.ToLocalTime().ToString("MM-dd HH:mm");
             PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(BattleTime)));
-            SetState("识别服务器...", mapLabel, busy: true, progress: 0);
-
             using var transport = new HttpVortexTransport(settings);
-            var source = new VortexStatsSource(transport, settings);
+            var source = new VortexStatsSource(transport);
             var intake = new BattleIntake(source, settings);
 
-            Server server = await intake.ResolveServerAsync(battle, string.Empty);
+            Server server;
+            if (settings.Server != Server.Auto)
+            {
+                // 服务器已在设置中确定，直接使用，不再识别。
+                server = settings.Server;
+                SetState($"服务器 {server.ToDisplayName()} · 获取战绩...", mapLabel, busy: true, progress: 0);
+            }
+            else
+            {
+                SetState("识别服务器...", mapLabel, busy: true, progress: 0);
+                server = await intake.ResolveServerAsync(battle, ResolveGamePath() ?? string.Empty);
+
+                // 首次自动识别出服务器后固化到设置：下次直接使用，不再识别；
+                // 仅当用户在设置里手动切回「自动」或改选其它服务器时才重新判定。
+                if (server != Server.Auto)
+                {
+                    AppSettings.Current.ServerIndex = server.ToSettingsIndex();
+                    AppSettings.Current.Save();
+                }
+            }
 
             // 先占位上屏：显示昵称/舰船，战绩栏留空，随后逐个填充。
             FillRows(battle);
@@ -494,15 +511,7 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
         settings.ProxyBaseUrl = string.IsNullOrWhiteSpace(s.ProxyBaseUrl) ? null : s.ProxyBaseUrl;
         settings.RequestDelayMs = Math.Max(0, s.RequestDelayMs);
         settings.MaximumParallelRequests = Math.Max(1, s.ParallelRequests);
-        settings.Server = s.ServerIndex switch
-        {
-            1 => SeaMonkeys.Core.Models.Server.Asia,
-            2 => SeaMonkeys.Core.Models.Server.Eu,
-            3 => SeaMonkeys.Core.Models.Server.Na,
-            4 => SeaMonkeys.Core.Models.Server.Ru,
-            5 => SeaMonkeys.Core.Models.Server.Cn,
-            _ => SeaMonkeys.Core.Models.Server.Auto,
-        };
+settings.Server = ServerExtensions.FromSettingsIndex(s.ServerIndex);
     }
 
     private static IEnumerable<Participant> Sort(IEnumerable<Participant> participants)

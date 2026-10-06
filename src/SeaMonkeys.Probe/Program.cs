@@ -23,8 +23,13 @@ internal static class Program
 
         string replayPath = args.Length > 0 ? args[0] : DefaultReplay;
 
+        string? proxy = Environment.GetEnvironmentVariable("SEAMONKEYS_PROXY");
+        int delay = int.TryParse(Environment.GetEnvironmentVariable("SEAMONKEYS_DELAY"), out int d) ? d : 20;
+        int parallel = int.TryParse(Environment.GetEnvironmentVariable("SEAMONKEYS_PARALLEL"), out int p) ? p : 32;
+
         Console.OutputEncoding = System.Text.Encoding.UTF8;
         Console.WriteLine($"replay: {replayPath}");
+        Console.WriteLine($"proxy={(string.IsNullOrWhiteSpace(proxy) ? "(direct)" : proxy)} delay={delay}ms parallel={parallel}");
         if (!File.Exists(replayPath))
         {
             Console.WriteLine("replay file not found");
@@ -42,23 +47,30 @@ internal static class Program
         var settings = new SeaMonkeysSettings
         {
             Server = Server.Auto,
-            RequestDelayMs = 60,
-            MaximumParallelRequests = 6,
+            RequestDelayMs = delay,
+            MaximumParallelRequests = parallel,
+            ProxyBaseUrl = string.IsNullOrWhiteSpace(proxy) ? null : proxy,
         };
 
         using var transport = new HttpVortexTransport(settings);
-        var source = new VortexStatsSource(transport, settings);
+        var source = new VortexStatsSource(transport);
         var intake = new BattleIntake(source, settings);
 
-        Console.WriteLine("resolving server by probing regions...");
-        Server server = await intake.ResolveServerAsync(battle, string.Empty);
-        Console.WriteLine($"server={server.ToDisplayName()}");
+        Console.WriteLine("resolving server...");
+        string gamePath = Environment.GetEnvironmentVariable("SEAMONKEYS_GAMEPATH") ?? string.Empty;
+        var serverSw = Stopwatch.StartNew();
+        Server server = await intake.ResolveServerAsync(battle, gamePath);
+        serverSw.Stop();
+        Console.WriteLine($"server={server.ToDisplayName()} ({serverSw.ElapsedMilliseconds} ms)");
         Console.WriteLine();
 
         Console.WriteLine("fetching statistics...");
         var progress = new Progress<int>(done => Console.WriteLine($"  {done}/{battle.Participants.Count}"));
+        var sw = Stopwatch.StartNew();
         await intake.EnrichAsync(battle, server, progress);
-
+        sw.Stop();
+        Console.WriteLine();
+        Console.WriteLine($"Elapsed: {sw.ElapsedMilliseconds} ms");
         Console.WriteLine();
         PrintTeam("ALLIES", battle.Allies);
         Console.WriteLine();

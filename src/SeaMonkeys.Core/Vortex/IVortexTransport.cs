@@ -17,6 +17,8 @@ public sealed class HttpVortexTransport : IVortexTransport, IDisposable
 {
     private readonly HttpClient http;
     private readonly bool ownsClient;
+    private readonly SemaphoreSlim gate;
+    private readonly int delayMs;
 
     public HttpVortexTransport(SeaMonkeysSettings settings, HttpClient? client = null)
     {
@@ -34,9 +36,40 @@ public sealed class HttpVortexTransport : IVortexTransport, IDisposable
                 "User-Agent",
                 "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0 Safari/537.36");
         }
+
+        gate = new SemaphoreSlim(Math.Max(1, settings.MaximumParallelRequests));
+        delayMs = Math.Max(0, settings.RequestDelayMs);
     }
 
     public SeaMonkeysSettings Settings { get; }
+
+    /// <summary>请求级全局并发门限：所有端点共用，避免玩家级并发叠加后打爆上游。</summary>
+    private async Task<HttpResponseMessage> SendAsync(string url, CancellationToken cancellationToken)
+    {
+        await gate.WaitAsync(cancellationToken);
+        try
+        {
+            HttpResponseMessage response = await http.GetAsync(url, HttpCompletionOption.ResponseContentRead, cancellationToken);
+            try
+            {
+                if (delayMs > 0)
+                {
+                    await Task.Delay(delayMs, cancellationToken);
+                }
+            }
+            catch
+            {
+                response.Dispose();
+                throw;
+            }
+
+            return response;
+        }
+        finally
+        {
+            gate.Release();
+        }
+    }
 
     public string BuildUrl(string host, string path)
     {
@@ -52,7 +85,7 @@ public sealed class HttpVortexTransport : IVortexTransport, IDisposable
     {
         try
         {
-            using HttpResponseMessage response = await http.GetAsync(url, cancellationToken);
+            using HttpResponseMessage response = await SendAsync(url, cancellationToken);
             if (response.StatusCode == HttpStatusCode.Unauthorized ||
                 response.StatusCode == HttpStatusCode.Forbidden)
             {
@@ -76,7 +109,7 @@ public sealed class HttpVortexTransport : IVortexTransport, IDisposable
     {
         try
         {
-            using HttpResponseMessage response = await http.GetAsync(url, cancellationToken);
+            using HttpResponseMessage response = await SendAsync(url, cancellationToken);
             if (response.StatusCode == HttpStatusCode.NotFound)
             {
                 return null;
@@ -107,5 +140,7 @@ public sealed class HttpVortexTransport : IVortexTransport, IDisposable
         {
             http.Dispose();
         }
+
+        gate.Dispose();
     }
 }

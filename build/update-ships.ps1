@@ -1,7 +1,8 @@
 param(
     [string]$GamePath = "",
     [string]$Accelerator = "https://ghfast.top/",
-    [string]$UnpackExe = ""
+    [string]$UnpackExe = "",
+    [switch]$SkipUpload
 )
 
 # 从本地游戏本体刷新内置船名表 Assets\ships.json。
@@ -72,3 +73,32 @@ Write-Host "[ships] old=$oldCount new=$newCount (version=$($new.version) date=$(
 
 Copy-Item -LiteralPath $tmpOut -Destination $target -Force
 Write-Host "[ships] updated $target" -ForegroundColor Green
+
+# 同步到自建代理（momomi.dmuk.org/ships.json），供客户端「立即更新」拉取。
+if ($SkipUpload) {
+    Write-Host "[ships] skip upload" -ForegroundColor Yellow
+    exit 0
+}
+
+$puttyDir = "C:\Program Files\PuTTY"
+$pscp = Join-Path $puttyDir "pscp.exe"
+if (-not (Test-Path -LiteralPath $pscp)) {
+    Write-Host "[ships] pscp.exe not found; skip upload ($pscp)" -ForegroundColor Yellow
+    exit 0
+}
+
+$env:PATH += ";$puttyDir"
+$hostKey = "ssh-ed25519 255 SHA256:k/4goPO/jzj27T/B3bFMZ+oENip+E2rWPeWBdoQMjLk"
+$remote = "root@189.1.217.109:/opt/1panel/www/sites/momomi.dmuk.org/index/ships.json"
+
+Write-Host "[ships] uploading to momomi.dmuk.org..." -ForegroundColor Cyan
+& $pscp -batch -hostkey $hostKey -pw "ssln5014." -P 22 -q $target $remote
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "[ships] upload FAILED (exit $LASTEXITCODE)" -ForegroundColor Red
+    exit $LASTEXITCODE
+}
+
+$env:PATH += ";$puttyDir"
+$plink = Join-Path $puttyDir "plink.exe"
+& $plink -batch -hostkey $hostKey -ssh -P 22 -pw "ssln5014." root@189.1.217.109 "chmod 644 /opt/1panel/www/sites/momomi.dmuk.org/index/ships.json && curl -sL -o /dev/null -w 'verify %{http_code} %{size_download}\n' https://momomi.dmuk.org/ships.json"
+Write-Host "[ships] uploaded to https://momomi.dmuk.org/ships.json" -ForegroundColor Green
