@@ -1,0 +1,45 @@
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  DOTNET_VERSION: '10.0.x'
+  DOTNET_NOLOGO: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  build:
+    name: Build (x64)
+    runs-on: windows-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: ${{ env.DOTNET_VERSION }}
+
+      # 与本地调试一致：UseWinUI + SelfContained 需要显式 Platform 与 RID。
+      - name: Build
+        shell: pwsh
+        run: |
+          dotnet build src/SeaMonkeys.App/SeaMonkeys.App.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:Platform=x64
+
+      # 校验发布脚本可跑通（仅合并版便携包，不编译安装包，避免 CI 依赖 Inno）。
+      - name: Verify release script (portable only)
+        shell: pwsh
+        run: |
+          pwsh -File build/build-release.ps1 `
+            -Variant merged -Arch x64 -Version 0.0.0 -SkipInstaller

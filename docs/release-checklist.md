@@ -48,17 +48,22 @@
 ## 5. 发布（必须）
 
 - [ ] 提交所有变更（含刷新后的 `ships.json` 与本版本变更说明）。
-- [ ] 打 tag（形如 `v0.1.0`）并推送，触发 `.github/workflows/release.yml`。
+- [ ] 二选一触发发布：
+      - **手动触发（推荐）**：Actions → Release → Run workflow，选 `bump`（patch/minor/major）或填 `version`。工作流会自动递增版本号、提交、打 tag、构建、发布。
+      - **手动打 tag**：`pwsh -File build/bump-version.ps1 -Bump minor` → 提交 → `git tag v<版本>` → `git push origin main --tags`。
 - [ ] 等待 CI 构建全部通过，Release 自动发布（含产物与自动生成的说明）。
-- [ ] 在 Release 说明中标注本次船名表版本与游戏构建号（写在 `.github/release-notes/<version>.md`）。
+- [ ] 变更说明写在 `.github/release-notes/<version>.md`；未写则回退到 compare 链接。
 - [ ] 回传最新版下载链接（Windows / ARM64）。
 
 ## 关联
 
+- `build/bump-version.ps1`：递增/设置版本号（唯一来源 `Directory.Build.props`）。
 - `build/build-release.ps1`：一键构建发布产物（便携 zip + Inno 安装包）。
 - `build/installer.iss`：Inno Setup 安装脚本（含分离版运行时引导）。
 - `build/update-ships.ps1`：刷新内置船名表。
 - `build/run-dev.ps1`：本地开发循环（停进程 → 构建 → 启动）。
 - `build/gen-stamps.ps1` / `build/gen-appicon.ps1`：印章与应用图标生成。
-- `.github/workflows/release.yml`：CI 发布流程。
-- `.github/scripts/gen-release-notes.ps1` + `.github/release-notes-template.md`：发行说明生成。
+- `.github/workflows/ci.yml`：push/PR 构建校验。
+- `.github/workflows/release.yml`：自动 bump + 发布流程。
+- `.github/scripts/gen-release-notes.ps1` + `.github/release-notes-template-{formal,patch}.md`：发行说明生成。
+- `docs/release-and-versioning.md`：版本与发布约定。
