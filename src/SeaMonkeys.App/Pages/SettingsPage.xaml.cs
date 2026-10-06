@@ -33,7 +33,14 @@ public sealed partial class SettingsPage : Page
         CatalogVersionText.Text = $"{ShipCatalog.Current.Version} ({ShipCatalog.Current.Date})";
         AcceleratorBox.Text = s.GitHubAccelerator;
         RendererPathBox.Text = s.RendererToolPath;
+        AboutVersionText.Text = $"v{GetVersion()}";
         syncing = false;
+    }
+
+    private static string GetVersion()
+    {
+        var version = System.Reflection.Assembly.GetExecutingAssembly().GetName().Version;
+        return version is null ? "0.0.0" : $"{version.Major}.{version.Minor}.{version.Build}";
     }
 
     private void CatalogUrl_Changed(object sender, TextChangedEventArgs e)

@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media.Imaging;
 
 namespace SeaMonkeys.App.Pages;
 
@@ -41,6 +42,31 @@ public sealed partial class BattlePage : Page
     public async Task ReloadAsync() => await State.LoadLatestAsync();
 
     public void RebuildCards() => RebuildAll();
+
+    /// <summary>把战场视图渲染成位图，供复制到剪贴板。
+    /// 截图时临时铺一层不透明底色：页面本身透明（透出 Mica 材质），
+    /// 直接截会得到透明背景，粘到别处会发黑。</summary>
+    public async Task<RenderTargetBitmap?> CaptureAsync()
+    {
+        Microsoft.UI.Xaml.Media.Brush? original = CaptureRoot.Background;
+        try
+        {
+            CaptureRoot.Background = (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SolidBackgroundFillColorBaseBrush"];
+            CaptureRoot.UpdateLayout();
+
+            var bitmap = new RenderTargetBitmap();
+            await bitmap.RenderAsync(CaptureRoot);
+            return bitmap;
+        }
+        catch
+        {
+            return null;
+        }
+        finally
+        {
+            CaptureRoot.Background = original;
+        }
+    }
 
     private void ScheduleRebuild()
     {

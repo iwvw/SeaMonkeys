@@ -190,14 +190,46 @@
                             <FontIcon Glyph="&#xE946;" />
                         </controls:SettingsExpander.HeaderIcon>
                         <controls:SettingsExpander.Items>
-                            <controls:SettingsCard Header="SeaMonkeys">
-                                <TextBlock Text="战舰世界实时战绩助手" />
+                            <controls:SettingsCard Header="SeaMonkeys" Description="《战舰世界》实时战绩助手">
+                                <TextBlock x:Name="AboutVersionText" Text="v-" />
                             </controls:SettingsCard>
-                            <controls:SettingsCard Header="数据来源" Description="本地 replay 元数据 + 区域战绩源（经代理转发）">
-                                <TextBlock Text="只读文件与公开接口" />
+                            <controls:SettingsCard Header="项目主页" Description="GitHub 仓库，欢迎反馈问题与建议">
+                                <HyperlinkButton x:Name="RepoLink"
+                                                 Content="iwvw/SeaMonkeys"
+                                                 NavigateUri="https://github.com/iwvw/SeaMonkeys" />
                             </controls:SettingsCard>
-                            <controls:SettingsCard Header="反作弊边界" Description="不注入游戏进程、不读游戏内存、不做游戏内覆盖">
-                                <TextBlock Text="安全只读" />
+                            <controls:SettingsCard Header="开发者" Description="DSUK">
+                                <HyperlinkButton x:Name="AuthorLink"
+                                                 Content="GitHub @iwvw"
+                                                 NavigateUri="https://github.com/iwvw" />
+                            </controls:SettingsCard>
+                            <controls:SettingsCard Header="开源许可" Description="MIT License · Copyright (c) 2026 DSUK">
+                                <HyperlinkButton Content="查看 LICENSE"
+                                                 NavigateUri="https://github.com/iwvw/SeaMonkeys/blob/main/LICENSE" />
+                            </controls:SettingsCard>
+                        </controls:SettingsExpander.Items>
+                    </controls:SettingsExpander>
+
+                    <controls:SettingsExpander Header="使用的开源项目">
+                        <controls:SettingsExpander.HeaderIcon>
+                            <FontIcon Glyph="&#xE943;" />
+                        </controls:SettingsExpander.HeaderIcon>
+                        <controls:SettingsExpander.Items>
+                            <controls:SettingsCard Header="Windows App SDK" Description="WinUI 3 界面框架（MIT）">
+                                <HyperlinkButton Content="microsoft/WindowsAppSDK"
+                                                 NavigateUri="https://github.com/microsoft/WindowsAppSDK" />
+                            </controls:SettingsCard>
+                            <controls:SettingsCard Header="CommunityToolkit.WinUI" Description="设置卡片与转换器控件（MIT）">
+                                <HyperlinkButton Content="CommunityToolkit/Windows"
+                                                 NavigateUri="https://github.com/CommunityToolkit/Windows" />
+                            </controls:SettingsCard>
+                            <controls:SettingsCard Header="wows-toolkit" Description="回放渲染与游戏数据解包工具（MIT）">
+                                <HyperlinkButton Content="landaire/wows-toolkit"
+                                                 NavigateUri="https://github.com/landaire/wows-toolkit" />
+                            </controls:SettingsCard>
+                            <controls:SettingsCard Header="ApeRadar" Description="分级算法与输出文本格式参考">
+                                <HyperlinkButton Content="iwvw-per/ApeRadar"
+                                                 NavigateUri="https://github.com/iwvw-per/ApeRadar" />
                             </controls:SettingsCard>
                         </controls:SettingsExpander.Items>
                     </controls:SettingsExpander>

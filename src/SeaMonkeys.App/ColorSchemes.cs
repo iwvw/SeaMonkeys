@@ -4,18 +4,18 @@ namespace SeaMonkeys.App;
 
 /// <summary>
 /// 配色风格：0=无颜色，1=4色，2=分类色（按等级 6 色），3=彩虹（连续 HSL）。
-/// 色值取自 ApeRadar 的定义，「诗人」为新增档位的插值色。
+/// 分类色取自 ApeRadar 的 8 色胜率色带（合并橙+黄、绿+深绿后压缩为 6 档）。
 /// </summary>
 public static class ColorSchemes
 {
     public static string[] Names { get; } = { "无颜色", "4 色", "分类色", "彩虹" };
 
-    /// <summary>各等级对应的分类色（与印章颜色一致）。</summary>
+    /// <summary>各等级对应的分类色（与印章颜色一致，取自 ApeRadar 8 色带）。</summary>
     public static Color GradeColor(string grade) => grade switch
     {
         "神佬" => Rgb(0xA0, 0x0D, 0xC5),
-        "大佬" => Rgb(0x02, 0xC9, 0xB3),
-        "诗人" => Rgb(0x1F, 0xC7, 0x5A),
+        "大佬" => Rgb(0xD0, 0x42, 0xF3),
+        "糕手" => Rgb(0x02, 0xC9, 0xB3),
         "正常" => Rgb(0x44, 0xB3, 0x00),
         "路边一条" => Rgb(0xFF, 0xC7, 0x1F),
         "区" => Rgb(0xFE, 0x0E, 0x00),

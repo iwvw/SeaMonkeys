@@ -14,6 +14,7 @@
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
+
         <TitleBar
             x:Name="AppTitleBar"
             Grid.Row="0"
@@ -49,6 +50,21 @@
                                FontSize="12"
                                Foreground="{ThemeResource TextFillColorTertiaryBrush}"
                                Text="{Binding BattleTime}" />
+                    <Button x:Name="UpdateButton"
+                            Visibility="Collapsed"
+                            Click="Update_Click"
+                            Padding="10,3"
+                            CornerRadius="4"
+                            Background="{ThemeResource AccentFillColorDefaultBrush}"
+                            Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+                            BorderThickness="0"
+                            VerticalAlignment="Center"
+                            ToolTipService.ToolTip="发现新版本，点击下载并更新">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon FontSize="13" Glyph="&#xE895;" />
+                            <TextBlock x:Name="UpdateButtonText" FontSize="13" FontWeight="SemiBold" Text="有新版本" />
+                        </StackPanel>
+                    </Button>
                 </StackPanel>
             </TitleBar.LeftHeader>
             <TitleBar.RightHeader>
@@ -62,6 +78,15 @@
                                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                Text="{Binding ActivityText}"
                                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
+                    <Button x:Name="CopyScreenshotButton"
+                            Style="{StaticResource ToolbarButtonStyle}"
+                            Click="CopyScreenshot_Click"
+                            ToolTipService.ToolTip="把战场视图复制为图片">
+                        <StackPanel Orientation="Horizontal" Spacing="6">
+                            <FontIcon FontSize="14" Glyph="&#xE8C8;" />
+                            <TextBlock x:Name="CopyScreenshotText" FontSize="14" Text="复制截图" />
+                        </StackPanel>
+                    </Button>
                     <Button Style="{StaticResource ToolbarButtonStyle}"
                             Click="OpenReplay_Click"
                             ToolTipService.ToolTip="导入回放文件">
@@ -89,7 +114,8 @@
             IsBackButtonVisible="Collapsed"
             IsPaneToggleButtonVisible="True"
             IsSettingsVisible="True"
-            OpenPaneLength="200"
+            IsPaneOpen="False"
+            OpenPaneLength="168"
             SelectionChanged="NavView_SelectionChanged">
             <NavigationView.MenuItems>
                 <NavigationViewItem Content="战场" IsSelected="True" Tag="battle">

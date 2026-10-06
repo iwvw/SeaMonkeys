@@ -32,7 +32,6 @@ public sealed partial class MainWindow : Window
         RootGrid.DataContext = State;
         State.Changed += (_, _) => BattleSummaryText.Text = State.Summary;
         State.InitializeDispatcher(DispatcherQueue);
-        NotificationService.Attach(RootGrid);
 
         Services.ThemeManager.Initialize((FrameworkElement)Content, DispatcherQueue);
         Services.ThemeManager.ThemeChanged += (_, _) => ShipTypeIconConverter.Invalidate();
@@ -54,6 +53,42 @@ public sealed partial class MainWindow : Window
         };
 
         _ = UpdateShipCatalogAsync();
+        _ = CheckForUpdatesAsync();
+    }
+
+    private UpdateInfo pendingUpdate;
+
+    private async Task CheckForUpdatesAsync()
+    {
+        UpdateInfo info = await UpdateService.CheckAsync();
+        if (!info.HasUpdate)
+        {
+            return;
+        }
+
+        pendingUpdate = info;
+        UpdateButtonText.Text = $"更新到 v{info.LatestVersion}";
+        UpdateButton.Visibility = Visibility.Visible;
+    }
+
+    private async void Update_Click(object sender, RoutedEventArgs e)
+    {
+        if (!pendingUpdate.HasUpdate)
+        {
+            return;
+        }
+
+        UpdateButton.IsEnabled = false;
+        UpdateButtonText.Text = $"下载中 0%";
+
+        var progress = new Progress<double>(p => UpdateButtonText.Text = $"下载中 {p:P0}");
+        bool ok = await UpdateService.ApplyAsync(pendingUpdate, progress);
+        if (!ok)
+        {
+            UpdateButtonText.Text = $"更新到 v{pendingUpdate.LatestVersion}";
+            UpdateButton.IsEnabled = true;
+        }
+        // 成功时进程会退出，由更新脚本接管，无需恢复按钮。
     }
 
     private async Task UpdateShipCatalogAsync()
@@ -229,6 +264,101 @@ public sealed partial class MainWindow : Window
         }
 
         await BattleState.Current.LoadLatestAsync();
+    }
+
+    private async void CopyScreenshot_Click(object sender, RoutedEventArgs e)
+    {
+        BattlePage? battle = NavFrame.Content as BattlePage;
+        if (battle is null)
+        {
+            NavFrame.Navigate(typeof(BattlePage));
+            await Task.Yield();
+            battle = NavFrame.Content as BattlePage;
+        }
+
+        if (battle is null)
+        {
+            return;
+        }
+
+        Microsoft.UI.Xaml.Media.Imaging.RenderTargetBitmap? bitmap = await battle.CaptureAsync();
+        if (bitmap is null || bitmap.PixelWidth == 0 || bitmap.PixelHeight == 0)
+        {
+            await FlashCopyResultAsync("截图失败", isError: true);
+            return;
+        }
+
+        try
+        {
+            byte[] png = await EncodePngAsync(bitmap);
+            await CopyPngToClipboardAsync(png);
+            await FlashCopyResultAsync("已复制", isError: false);
+        }
+        catch
+        {
+            await FlashCopyResultAsync("复制失败", isError: true);
+        }
+    }
+
+    /// <summary>在按钮文字上短暂反馈复制结果，不弹浮层。</summary>
+    private async Task FlashCopyResultAsync(string text, bool isError)
+    {
+        CopyScreenshotText.Text = text;
+        CopyScreenshotButton.Foreground = isError
+            ? (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCriticalBrush"]
+            : (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorSuccessBrush"];
+
+        await Task.Delay(1500);
+
+        CopyScreenshotText.Text = "复制截图";
+        CopyScreenshotButton.ClearValue(Control.ForegroundProperty);
+    }
+
+    private static async Task<byte[]> EncodePngAsync(
+        Microsoft.UI.Xaml.Media.Imaging.RenderTargetBitmap bitmap)
+    {
+        int width = bitmap.PixelWidth;
+        int height = bitmap.PixelHeight;
+        Windows.Storage.Streams.IBuffer buffer = await bitmap.GetPixelsAsync();
+        byte[] bgra = new byte[width * height * 4];
+        using (var dataReader = Windows.Storage.Streams.DataReader.FromBuffer(buffer))
+        {
+            dataReader.ReadBytes(bgra);
+        }
+
+        using var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+        var encoder = await Windows.Graphics.Imaging.BitmapEncoder.CreateAsync(
+            Windows.Graphics.Imaging.BitmapEncoder.PngEncoderId, stream);
+        encoder.SetPixelData(
+            Windows.Graphics.Imaging.BitmapPixelFormat.Bgra8,
+            Windows.Graphics.Imaging.BitmapAlphaMode.Premultiplied,
+            (uint)width,
+            (uint)height,
+            96,
+            96,
+            bgra);
+        await encoder.FlushAsync();
+
+        byte[] result = new byte[stream.Size];
+        var reader = new Windows.Storage.Streams.DataReader(stream.GetInputStreamAt(0));
+        await reader.LoadAsync((uint)stream.Size);
+        reader.ReadBytes(result);
+        return result;
+    }
+
+    private static async Task CopyPngToClipboardAsync(byte[] png)
+    {
+        var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
+        var stream = new Windows.Storage.Streams.InMemoryRandomAccessStream();
+        var writer = new Windows.Storage.Streams.DataWriter(stream.GetOutputStreamAt(0));
+        writer.WriteBytes(png);
+        await writer.StoreAsync();
+        await writer.FlushAsync();
+        writer.DetachStream();
+        stream.Seek(0);
+        package.SetBitmap(Windows.Storage.Streams.RandomAccessStreamReference.CreateFromStream(stream));
+        Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
+        Windows.ApplicationModel.DataTransfer.Clipboard.Flush();
     }
 
     private async void OpenReplay_Click(object sender, RoutedEventArgs e)

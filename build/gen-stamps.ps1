@@ -55,10 +55,10 @@ function New-Stamp {
     $bmp.Dispose()
 }
 
-# 颜色对齐分类色：神佬紫、大佬青、诗人翠绿、正常绿、路边一条黄、区红
+# 颜色对齐 ApeRadar 8 色胜率色带（合并为 6 档）：神佬深紫、大佬紫、糕手青、正常绿、路边一条黄、区红
 New-Stamp -File (Join-Path $outDir "god.png")      -Lines @("神佬")      -Color @(160, 13, 197)
-New-Stamp -File (Join-Path $outDir "pro.png")      -Lines @("大佬")      -Color @(2, 201, 179)
-New-Stamp -File (Join-Path $outDir "poet.png")     -Lines @("诗人")      -Color @(31, 199, 90)
+New-Stamp -File (Join-Path $outDir "pro.png")      -Lines @("大佬")      -Color @(208, 66, 243)
+New-Stamp -File (Join-Path $outDir "poet.png")     -Lines @("糕手")      -Color @(2, 201, 179)
 New-Stamp -File (Join-Path $outDir "normal.png")   -Lines @("过关")      -Color @(68, 179, 0)
 New-Stamp -File (Join-Path $outDir "roadside.png") -Lines @("路边")      -Color @(255, 199, 31)
 New-Stamp -File (Join-Path $outDir "seamonkey.png") -Lines @("区")       -Color @(254, 14, 0)

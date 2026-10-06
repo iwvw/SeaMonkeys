@@ -67,7 +67,7 @@ public sealed class PlayerCard : Grid
         ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(2.2, GridUnitType.Star) });
         ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.4, GridUnitType.Star) });
         ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.4, GridUnitType.Star) });
-        ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.0, GridUnitType.Star) });
+        ColumnDefinitions.Add(new ColumnDefinition { Width = new GridLength(1.5, GridUnitType.Star) });
 
         bar = new Border { CornerRadius = new CornerRadius(7, 0, 0, 7) };
         Grid.SetColumn(bar, 0);
@@ -238,7 +238,7 @@ public sealed class PlayerCard : Grid
             {
                 "神佬" => "god.png",
                 "大佬" => "pro.png",
-                "诗人" => "poet.png",
+                "糕手" => "poet.png",
                 "正常" => "normal.png",
                 "路边一条" => "roadside.png",
                 "区" => "seamonkey.png",
@@ -381,6 +381,11 @@ public sealed class PlayerCard : Grid
     {
         var flyout = new MenuFlyout();
 
+        var copy = new MenuFlyoutItem { Text = "复制玩家战绩" };
+        copy.Click += (_, _) => CopyPlayerStatistics(row);
+        flyout.Items.Add(copy);
+        flyout.Items.Add(new MenuFlyoutSeparator());
+
         void Add(string text, WatchStatus status)
         {
             var item = new MenuFlyoutItem { Text = text };
@@ -394,9 +399,9 @@ public sealed class PlayerCard : Grid
             flyout.Items.Add(item);
         }
 
-        Add("标记为 Positive", WatchStatus.Positive);
-        Add("标记为 Negtive", WatchStatus.Negtive);
-        Add("标记为 Cheater", WatchStatus.Cheater);
+        Add("标记为 好人", WatchStatus.Positive);
+        Add("标记为 海猴", WatchStatus.Negtive);
+        Add("标记为 作弊者", WatchStatus.Cheater);
         flyout.Items.Add(new MenuFlyoutSeparator());
         var remove = new MenuFlyoutItem { Text = "移出观察名单" };
         remove.Click += (_, _) =>
@@ -408,6 +413,43 @@ public sealed class PlayerCard : Grid
         flyout.Items.Add(remove);
 
         return flyout;
+    }
+
+    /// <summary>把单个玩家的战绩按 ApeRadar 兼容格式复制到剪贴板。</summary>
+    private static void CopyPlayerStatistics(ParticipantRow row)
+    {
+        string clan = string.IsNullOrWhiteSpace(row.Clan) ? string.Empty : row.Clan + " ";
+        string accountBattles = row.IsAvailable ? row.BattlesValue.ToString("0") : "-";
+        string accountWinrate = row.IsAvailable ? row.WinrateValue.ToString("P1") : "-";
+
+        // ShipRate 形如「25场 · 66336」，ShipWinrate 形如「胜率 52.0%」；无数据时为「-」。
+        string shipBattles = "-";
+        if (row.ShipRate.EndsWith("场", StringComparison.Ordinal) ||
+            row.ShipRate.Contains(' '))
+        {
+            shipBattles = row.ShipRate.Split(' ')[0].TrimEnd('场');
+        }
+
+        string shipWinrate = row.ShipWinrate.StartsWith("胜率 ", StringComparison.Ordinal)
+            ? row.ShipWinrate["胜率 ".Length..]
+            : "-";
+        string avgDamage = row.IsAvailable ? row.AvgDamage : "-";
+
+        string text =
+            $"{clan}{row.Name}（{row.Tier} {row.Ship}），" +
+            $"账号{accountBattles}场 {accountWinrate}胜率，" +
+            $"单船{shipBattles}场 {shipWinrate}胜率 {avgDamage}场均。";
+
+        try
+        {
+            var package = new Windows.ApplicationModel.DataTransfer.DataPackage();
+            package.SetText(text);
+            Windows.ApplicationModel.DataTransfer.Clipboard.SetContent(package);
+            Windows.ApplicationModel.DataTransfer.Clipboard.Flush();
+        }
+        catch
+        {
+        }
     }
 
     private static SeaMonkeys.Core.Models.Server ParseServer(ParticipantRow row)

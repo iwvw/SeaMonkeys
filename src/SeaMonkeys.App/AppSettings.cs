@@ -13,7 +13,7 @@ public sealed class AppSettings
 
     public static AppSettings Current { get; } = Load();
 
-    private const int CurrentSettingsVersion = 4;
+    private const int CurrentSettingsVersion = 5;
 
     public const string DefaultProxyBaseUrl = "https://momomi.dmuk.org";
 
@@ -28,7 +28,7 @@ public sealed class AppSettings
     public int SettingsVersion { get; set; }
 
     /// <summary>0 = 左侧，1 = 顶部。</summary>
-    public int NavigationStyle { get; set; } = 1;
+    public int NavigationStyle { get; set; } = 0;
 
     /// <summary>背景材质：0=亚克力，1=Mica，2=纯色。</summary>
     public int BackdropStyle { get; set; } = 1;
@@ -176,6 +176,18 @@ public sealed class AppSettings
             }
 
             SettingsVersion = 4;
+            changed = true;
+        }
+
+        if (SettingsVersion < 5)
+        {
+            // 导航样式默认值从顶部(1)改为左侧(0)；仅在用户仍是旧默认值时切换。
+            if (NavigationStyle == 1)
+            {
+                NavigationStyle = 0;
+            }
+
+            SettingsVersion = 5;
             changed = true;
         }
 
