@@ -87,6 +87,7 @@ public sealed class PlayerCard : Grid
 
         shipLine = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 6, VerticalAlignment = VerticalAlignment.Center };
         tier = Text(18, new FontWeight { Weight = 600 }, "TextFillColorSecondaryBrush");
+        tier.VerticalAlignment = VerticalAlignment.Center;
         shipLine.Children.Add(tier);
         icon = new Image { VerticalAlignment = VerticalAlignment.Center, Stretch = Stretch.Uniform };
         shipLine.Children.Add(icon);
@@ -177,12 +178,12 @@ public sealed class PlayerCard : Grid
         bar.Background = barColor is Color c ? BuildGradient(c) : null;
 
         // 主题画刷在构造时被缓存，切换主题后必须重新取，否则沿用旧主题颜色。
-        tier.Foreground = Brush("TextFillColorSecondaryBrush");
         clan.Foreground = Brush("TextFillColorSecondaryBrush");
         stateText.Foreground = Brush("TextFillColorSecondaryBrush");
 
         tier.Text = row.Tier;
-        tier.FontSize = 18 * s;
+        tier.FontSize = (ShipCatalog.IsSuperShip(row.TierValue) ? 26 : 18) * s;
+        tier.Foreground = Brush("TextFillColorSecondaryBrush");
         icon.Height = 15 * s;
         icon.Width = 15 * s * ShipAspect(row.ShipTypeKey);
         icon.Source = ShipIcon(row.ShipTypeKey);

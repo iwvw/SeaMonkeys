@@ -17,7 +17,9 @@ public sealed partial class MainWindow : Window
 
         ExtendsContentIntoTitleBar = true;
         SetTitleBar(AppTitleBar);
-        AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Tall;
+        // 标题栏内容行保持 48px，但系统按钮（最小化/最大化/关闭）用标准高度（约 32px）顶部对齐，
+        // 形成「半高」观感；Tall 会让按钮占满整行高度。
+        AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Standard;
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
         if (AppWindow.Presenter is OverlappedPresenter presenter)
         {

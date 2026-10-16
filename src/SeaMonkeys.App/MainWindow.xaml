@@ -79,24 +79,33 @@
                                Text="{Binding ActivityText}"
                                Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />
                     <Button x:Name="CopyScreenshotButton"
-                            Style="{StaticResource ToolbarButtonStyle}"
                             Click="CopyScreenshot_Click"
+                            Height="32"
+                            Padding="12,0"
+                            CornerRadius="4"
+                            VerticalAlignment="Center"
                             ToolTipService.ToolTip="把战场视图复制为图片">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <FontIcon FontSize="14" Glyph="&#xE8C8;" />
                             <TextBlock x:Name="CopyScreenshotText" FontSize="14" Text="复制截图" />
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource ToolbarButtonStyle}"
-                            Click="OpenReplay_Click"
+                    <Button Click="OpenReplay_Click"
+                            Height="32"
+                            Padding="12,0"
+                            CornerRadius="4"
+                            VerticalAlignment="Center"
                             ToolTipService.ToolTip="导入回放文件">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <FontIcon FontSize="14" Glyph="&#xE8E5;" />
                             <TextBlock FontSize="14" Text="打开回放" />
                         </StackPanel>
                     </Button>
-                    <Button Style="{StaticResource ToolbarButtonStyle}"
-                            Click="Reload_Click"
+                    <Button Click="Reload_Click"
+                            Height="32"
+                            Padding="12,0"
+                            CornerRadius="4"
+                            VerticalAlignment="Center"
                             ToolTipService.ToolTip="加载最新对局">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <FontIcon FontSize="14" Glyph="&#xE72C;" />

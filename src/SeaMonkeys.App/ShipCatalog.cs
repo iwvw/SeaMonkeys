@@ -130,9 +130,13 @@ public sealed class ShipCatalog
         8 => "VIII",
         9 => "IX",
         10 => "X",
-        11 => "XI",
+        // 11 级（超级舰只）在游戏内用星标标识，不用罗马数字。
+        11 => "★",
         _ => value > 0 ? value.ToString() : string.Empty,
     };
+
+    /// <summary>是否为 11 级（超级舰只）。</summary>
+    public static bool IsSuperShip(int tier) => tier == 11;
 
     private static string TypeName(string type) => type switch
     {
