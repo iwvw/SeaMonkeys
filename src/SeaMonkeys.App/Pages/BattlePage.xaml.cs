@@ -8,6 +8,13 @@ namespace SeaMonkeys.App.Pages;
 public sealed partial class BattlePage : Page
 {
     private const double BaseRowHeight = 72.0;
+
+    // 单张卡片在 RowScale=1 时容纳四列文本所需的宽度（DIP）。
+    // 由列权重 2.2/1.4/1.4/1.5 反推最紧的一列：账号列需 ≥123（「12767场 · 97592」），
+    // 解得卡片宽约 570；玩家列需 12(内边距)+200(公会+昵称)，解得约 656。取 660。
+    // 宽度不足时按此比例缩小字号，而不是让列把文本挤成省略号。
+    private const double BaseCardWidth = 660.0;
+
     private bool loaded;
     private int lastDataVersion = -1;
     private double lastScale = -1;
@@ -127,10 +134,13 @@ public sealed partial class BattlePage : Page
     private void RebuildAll(bool force = false)
     {
         // 先算缩放系数，再让卡片按系数渲染。
+        // 行高决定字号上限，卡宽决定字号上限：两者取小，避免窗口变窄时列被文字挤破。
         double available = AlliesGrid.ActualHeight;
         int count = State.Allies.Count;
         double rowHeight = count > 0 && available > 1 ? available / count : BaseRowHeight;
-        double s = Math.Clamp(rowHeight / BaseRowHeight, 0.72, 2.2);
+        double heightScale = rowHeight / BaseRowHeight;
+        double widthScale = AlliesGrid.ActualWidth > 1 ? AlliesGrid.ActualWidth / BaseCardWidth : double.MaxValue;
+        double s = Math.Clamp(Math.Min(heightScale, widthScale), 0.72, 2.2);
 
         // 缩放系数与数据都未变时跳过重排：拖动窗口只改宽度时不会白白重建整棵树。
         bool scaleChanged = Math.Abs(s - lastScale) > 0.001;

@@ -9,6 +9,13 @@ namespace SeaMonkeys.App;
 
 public sealed partial class MainWindow : Window
 {
+    // 内容最小尺寸（DIP）。宽度取自双栏 12 行布局下四列文本不被截断所需，
+    // 高度取自 RowScale 不至于把两行文字压扁所需。
+    private const double MinimumWidthDip = 1400;
+    private const double MinimumHeightDip = 960;
+
+    private double lastMinimumScale = -1;
+
     public MainWindow()
     {
         InitializeComponent();
@@ -21,19 +28,24 @@ public sealed partial class MainWindow : Window
         // 形成「半高」观感；Tall 会让按钮占满整行高度。
         AppWindow.TitleBar.PreferredHeightOption = TitleBarHeightOption.Standard;
         AppWindow.SetIcon(Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico"));
-        if (AppWindow.Presenter is OverlappedPresenter presenter)
-        {
-            presenter.PreferredMinimumWidth = 1280;
-            presenter.PreferredMinimumHeight = 820;
-        }
 
         RestoreWindowPlacement();
+        ApplyMinimumSize();
         ApplyBackdrop();
         ApplyNavigationStyle(AppSettings.Current.NavigationStyle);
 
         RootGrid.DataContext = State;
         State.Changed += (_, _) => BattleSummaryText.Text = State.Summary;
         State.InitializeDispatcher(DispatcherQueue);
+
+        RootGrid.Loaded += (_, _) =>
+        {
+            ApplyMinimumSize();
+            if (RootGrid.XamlRoot is not null)
+            {
+                RootGrid.XamlRoot.Changed += (_, _) => ApplyMinimumSize();
+            }
+        };
 
         Services.ThemeManager.Initialize((FrameworkElement)Content, DispatcherQueue);
         Services.ThemeManager.ThemeChanged += (_, _) => ShipTypeIconConverter.Invalidate();
@@ -159,6 +171,28 @@ public sealed partial class MainWindow : Window
         {
             presenter.Maximize();
         }
+    }
+
+    private void ApplyMinimumSize()
+    {
+        if (AppWindow.Presenter is not OverlappedPresenter presenter)
+        {
+            return;
+        }
+
+        double scale = RootGrid.XamlRoot?.RasterizationScale ?? 1.0;
+        if (Math.Abs(scale - lastMinimumScale) < 0.001)
+        {
+            return;
+        }
+
+        lastMinimumScale = scale;
+
+        DisplayArea area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);
+        Windows.Graphics.RectInt32 work = area.WorkArea;
+
+        presenter.PreferredMinimumWidth = Math.Min((int)Math.Ceiling(MinimumWidthDip * scale), work.Width);
+        presenter.PreferredMinimumHeight = Math.Min((int)Math.Ceiling(MinimumHeightDip * scale), work.Height);
     }
 
     private void SaveWindowPlacement()
