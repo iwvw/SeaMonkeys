@@ -17,8 +17,19 @@ public sealed class ArenaInfoParser
             FileAccess.Read,
             FileShare.ReadWrite | FileShare.Delete);
 
-        string json = ReadMetadataJson(stream);
-        return ParseJson(json, filePath);
+        byte[] bytes = new byte[stream.Length];
+        stream.ReadExactly(bytes);
+        int headerLength = ReadHeaderJsonLength(bytes);
+        string headerJson = Encoding.UTF8.GetString(bytes, 12, headerLength);
+
+        // 莱斯塔（Korabli）版：头 JSON 之后紧跟 accountDBID 名单块（playersPublicInfo）。
+        int lestaBlock = FindJson(bytes, 12 + headerLength, '{');
+        if (lestaBlock > 0 && Contains(bytes, lestaBlock, "playersPublicInfo"))
+        {
+            return ParseLesta(bytes, headerJson, lestaBlock, filePath);
+        }
+
+        return ParseJson(headerJson, filePath);
     }
 
     public Battle ParseJson(string json, string sourceFile)
@@ -84,41 +95,223 @@ public sealed class ArenaInfoParser
         }
     }
 
-    private static string ReadMetadataJson(FileStream stream)
+    private static int ReadHeaderJsonLength(byte[] bytes)
     {
-        int firstByte = stream.ReadByte();
-        stream.Seek(0, SeekOrigin.Begin);
-
-        if (firstByte == 0x7B)
+        if (bytes.Length < 12)
         {
-            using var reader = new StreamReader(stream, Encoding.UTF8);
-            return reader.ReadToEnd();
+            throw new BattleParseException("FileFormatIncorrect");
         }
 
-        if (firstByte == 0x12)
+        if (bytes[0] == 0x7B)
         {
-            Span<byte> header = stackalloc byte[12];
-            stream.ReadExactly(header);
+            // 纯 JSON 起始（未压缩）：整个内容即 JSON。
+            return bytes.Length;
+        }
 
+        if (bytes[0] == 0x12)
+        {
             ReadOnlySpan<byte> magic = new byte[] { 0x12, 0x32, 0x34, 0x11 };
-            if (!header[..4].SequenceEqual(magic))
+            if (!bytes.AsSpan(0, 4).SequenceEqual(magic))
             {
                 throw new BattleParseException("FileFormatIncorrect");
             }
 
-            int length = BitConverter.ToInt32(header[8..12]);
+            int length = BitConverter.ToInt32(bytes, 8);
             if (length <= 0 || length > 16 * 1024 * 1024)
             {
                 throw new BattleParseException("FileFormatIncorrect");
             }
 
-            byte[] buffer = new byte[length];
-            stream.ReadExactly(buffer);
-            return Encoding.UTF8.GetString(buffer);
+            return length;
         }
 
         throw new BattleParseException("FileFormatIncorrect");
     }
+
+    /// <summary>从 start 开始查找第一个未转义的 JSON 起始（{）。</summary>
+    private static int FindJson(byte[] bytes, int start, char ch)
+    {
+        for (int i = start; i < bytes.Length; i++)
+        {
+            if (bytes[i] == (byte)ch)
+            {
+                return i;
+            }
+        }
+
+        return -1;
+    }
+
+    private static bool Contains(byte[] bytes, int start, string needle)
+    {
+        ReadOnlySpan<byte> n = System.Text.Encoding.UTF8.GetBytes(needle);
+        for (int i = start; i < bytes.Length - n.Length + 1; i++)
+        {
+            if (bytes.AsSpan(i, n.Length).SequenceEqual(n))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>
+    /// 解析莱斯塔（Korabli）回放：头 JSON 提供对局基本信息，
+    /// accountDBID 块提供玩家名单（playersPublicInfo）。
+    /// </summary>
+    private static Battle ParseLesta(byte[] bytes, string headerJson, int blockStart, string sourceFile)
+    {
+        using JsonDocument headerDoc = JsonDocument.Parse(headerJson);
+        using JsonDocument blockDoc = ParseJsonObject(bytes, blockStart);
+
+        JsonElement root = headerDoc.RootElement;
+        JsonElement block = blockDoc.RootElement;
+
+        string matchGroup = GetString(root, "matchGroup");
+        string scenario = GetString(root, "scenario");
+        string mapDisplayName = GetString(root, "mapDisplayName");
+        int mapId = (int)GetLong(root, "mapId");
+        string gameType = GetString(root, "gameType");
+        string gameMode = GetString(root, "gameMode");
+        DateTimeOffset startTime = ParseStartTime(GetString(root, "dateTime"));
+
+        // block 结构根是 {"accountDBID": ..., "playersPublicInfo": {...}, ...}
+        var participants = new List<Participant>();
+        if (block.TryGetProperty("playersPublicInfo", out JsonElement ppi) &&
+            ppi.ValueKind == JsonValueKind.Object)
+        {
+            foreach (JsonProperty item in ppi.EnumerateObject())
+            {
+                if (item.Value.ValueKind != JsonValueKind.Array)
+                {
+                    continue;
+                }
+
+                JsonElement arr = item.Value;
+                // [0]=账号ID, [1]=昵称, [3]=公会tag, [6]=队伍(0/1), [7]=船ID
+                long accountId = arr.GetArrayLength() > 0 ? arr[0].GetInt64() : 0;
+                string name = arr.GetArrayLength() > 1 ? (arr[1].ValueKind == JsonValueKind.String ? arr[1].GetString() ?? string.Empty : string.Empty) : string.Empty;
+                string clan = arr.GetArrayLength() > 3 && arr[3].ValueKind == JsonValueKind.String ? arr[3].GetString() ?? string.Empty : string.Empty;
+                long team = arr.GetArrayLength() > 6 ? arr[6].GetInt64() : 0;
+                string ownVehicle = GetString(root, "playerName");
+                long ownTeam = GetOwnTeam(block, ownVehicle);
+
+                if (accountId <= 0)
+                {
+                    continue;
+                }
+
+                // 队伍归属：0 号队伍通常是敌军，1 号队伍是友军？需与 WOWS 对齐。
+                // WOWS relation: 0=self, 1=ally, 2=enemy。
+                // 这里以「自己所在队伍」为参照：同队为友军，异队为敌军。
+                Relation relation = team == ownTeam ? Relation.Ally : Relation.Enemy;
+                if (name == ownVehicle)
+                {
+                    relation = Relation.Self;
+                }
+
+                participants.Add(new Participant
+                {
+                    Name = name,
+                    Relation = relation,
+                    ShipId = arr.GetArrayLength() > 7 ? arr[7].GetInt64().ToString(CultureInfo.InvariantCulture) : string.Empty,
+                    RawId = accountId,
+                    AccountId = accountId.ToString(CultureInfo.InvariantCulture),
+                    Server = Server.Ru,
+                    ClanTag = string.IsNullOrWhiteSpace(clan) ? null : $"[{clan}]",
+                });
+            }
+        }
+
+        return new Battle
+        {
+            MatchGroup = matchGroup,
+            GameMode = gameMode,
+            GameType = gameType,
+            Scenario = scenario,
+            MapDisplayName = mapDisplayName,
+            MapId = mapId,
+            ClientVersion = GetString(root, "clientVersionFromExe"),
+            StartTime = startTime,
+            SourceFile = sourceFile,
+            Participants = participants,
+        };
+    }
+
+    /// <summary>从 block JSON 中解析出「自己」的队伍号（0 或 1）。</summary>
+    private static long GetOwnTeam(JsonElement block, string ownName)
+    {
+        if (block.TryGetProperty("playersPublicInfo", out JsonElement ppi) &&
+            ppi.ValueKind == JsonValueKind.Object)
+        {
+            foreach (JsonProperty item in ppi.EnumerateObject())
+            {
+                if (item.Value.ValueKind != JsonValueKind.Array || item.Value.GetArrayLength() <= 1)
+                {
+                    continue;
+                }
+
+                string name = item.Value[1].ValueKind == JsonValueKind.String ? item.Value[1].GetString() ?? string.Empty : string.Empty;
+                if (name == ownName && item.Value.GetArrayLength() > 6)
+                {
+                    return item.Value[6].GetInt64();
+                }
+            }
+        }
+
+        return 0;
+    }
+
+    /// <summary>从指定偏移解析出一个完整 JSON 对象。</summary>
+    private static JsonDocument ParseJsonObject(byte[] bytes, int start)
+    {
+        int depth = 0;
+        bool inString = false;
+        bool escaped = false;
+        for (int i = start; i < bytes.Length; i++)
+        {
+            byte c = bytes[i];
+            if (inString)
+            {
+                if (escaped)
+                {
+                    escaped = false;
+                }
+                else if (c == (byte)'\\')
+                {
+                    escaped = true;
+                }
+                else if (c == (byte)'"')
+                {
+                    inString = false;
+                }
+            }
+            else
+            {
+                if (c == (byte)'"')
+                {
+                    inString = true;
+                }
+                else if (c == (byte)'{')
+                {
+                    depth++;
+                }
+                else if (c == (byte)'}')
+                {
+                    depth--;
+                    if (depth == 0)
+                    {
+                        string json = Encoding.UTF8.GetString(bytes, start, i - start + 1);
+                        return JsonDocument.Parse(json);
+                    }
+                }
+            }
+        }
+
+        throw new BattleParseException("FileFormatIncorrect");
+    }
+
 
     private static DateTimeOffset ParseStartTime(string value)
     {

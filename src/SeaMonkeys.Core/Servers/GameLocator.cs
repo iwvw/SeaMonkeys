@@ -62,11 +62,12 @@ public static class GameLocator
         return null;
     }
 
-    /// <summary>校验目录是否为游戏根（含 WorldOfWarships.exe）。</summary>
+    /// <summary>校验目录是否为游戏根（含 WorldOfWarships.exe 或莱斯塔版 Korabli.exe）。</summary>
     public static bool IsGameRoot(string path)
         => !string.IsNullOrWhiteSpace(path)
             && Directory.Exists(path)
-            && File.Exists(Path.Combine(path, "WorldOfWarships.exe"));
+            && (File.Exists(Path.Combine(path, "WorldOfWarships.exe"))
+                || File.Exists(Path.Combine(path, "Korabli.exe")));
 
     /// <summary>遍历 Steam 各库，查找 World of Warships。</summary>
     public static string? FindInSteamLibraries()
@@ -163,6 +164,8 @@ public static class GameLocator
         return Directory
             .EnumerateFiles(replayDirectory, "tempArenaInfo.json", SearchOption.AllDirectories)
             .Concat(Directory.EnumerateFiles(replayDirectory, "*.wowsreplay", SearchOption.AllDirectories))
+            .Concat(Directory.EnumerateFiles(replayDirectory, "*.korablireplay", SearchOption.AllDirectories))
+            .Where(f => !Path.GetFileName(f).StartsWith("temp.", StringComparison.OrdinalIgnoreCase))
             .Select(path => new FileInfo(path))
             .OrderByDescending(file => file.LastWriteTime)
             .Select(file => file.FullName)

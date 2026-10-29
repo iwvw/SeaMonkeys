@@ -154,12 +154,22 @@ public sealed partial class MainWindow : Window
         {
             CenterWindow(1520, 1000);
         }
+
+        if (AppWindow.Presenter is OverlappedPresenter presenter)
+        {
+            presenter.Maximize();
+        }
     }
 
     private void SaveWindowPlacement()
     {
         try
         {
+            if (AppWindow.Presenter is OverlappedPresenter { State: not OverlappedPresenterState.Restored })
+            {
+                return;
+            }
+
             var s = AppSettings.Current;
             var pos = AppWindow.Position;
             var size = AppWindow.Size;
