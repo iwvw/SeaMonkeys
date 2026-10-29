@@ -1,6 +1,6 @@
 {
-  "version": "13187581",
-  "date": "20261006",
+  "version": "13357625",
+  "date": "20261029",
   "ships": {
     "4292851696": {
       "name_en-us": "Bogue (old)",
@@ -182,6 +182,13 @@
       "name_zh-cn": "[\u4E2D\u9014\u5C9B]",
       "nation": "usa",
       "tier": 10,
+      "type": "AirCarrier"
+    },
+    "3332356080": {
+      "name_en-us": "Hornet B",
+      "name_zh-cn": "\u5927\u9EC4\u8702B",
+      "nation": "usa",
+      "tier": 8,
       "type": "AirCarrier"
     },
     "3330258928": {
@@ -924,6 +931,13 @@
       "name_zh-cn": "\u585E\u52D2\u59C6",
       "nation": "usa",
       "tier": 10,
+      "type": "Cruiser"
+    },
+    "3543054320": {
+      "name_en-us": "Honolulu",
+      "name_zh-cn": "\u706B\u5974\u9C81\u9C81",
+      "nation": "usa",
+      "tier": 7,
       "type": "Cruiser"
     },
     "3542005744": {
@@ -2646,6 +2660,13 @@
       "name_zh-cn": "\u6697\u9ED1\u6D41\u6D6A\u8005",
       "nation": "france",
       "tier": 9,
+      "type": "Battleship"
+    },
+    "3332323152": {
+      "name_en-us": "Flandre\u00A0B",
+      "name_zh-cn": "\u5F17\u5170\u5FB7\u5C14B",
+      "nation": "france",
+      "tier": 8,
       "type": "Battleship"
     },
     "4188976976": {
@@ -4811,6 +4832,13 @@
       "tier": 10,
       "type": "AirCarrier"
     },
+    "3542070992": {
+      "name_en-us": "Akagi",
+      "name_zh-cn": "\u8D64\u57CE",
+      "nation": "japan",
+      "tier": 8,
+      "type": "AirCarrier"
+    },
     "3342841552": {
       "name_en-us": "Kikaku",
       "name_zh-cn": "\u6BC5\u9E64",
@@ -5483,6 +5511,13 @@
       "tier": 9,
       "type": "Cruiser"
     },
+    "3488528080": {
+      "name_en-us": "\u014Cta",
+      "name_zh-cn": "\u592A\u7530",
+      "nation": "japan",
+      "tier": 9,
+      "type": "Cruiser"
+    },
     "3445536464": {
       "name_en-us": "Za\u014D P",
       "name_zh-cn": "\u85CF\u738BP",
@@ -6076,6 +6111,13 @@
       "name_zh-cn": "\u81EA\u7531\u66D9\u5149",
       "nation": "russia",
       "tier": 9,
+      "type": "Battleship"
+    },
+    "3539940816": {
+      "name_en-us": "Rodina",
+      "name_zh-cn": "\u6545\u571F",
+      "nation": "russia",
+      "tier": 10,
       "type": "Battleship"
     },
     "3530503632": {
@@ -6715,6 +6757,13 @@
       "tier": 9,
       "type": "Battleship"
     },
+    "3331274160": {
+      "name_en-us": "Victoria B",
+      "name_zh-cn": "\u7EF4\u591A\u5229\u4E9AB",
+      "nation": "spain",
+      "tier": 9,
+      "type": "Battleship"
+    },
     "4188976560": {
       "name_en-us": "J\u00FApiter",
       "name_zh-cn": "\u6731\u5E87\u7279",
@@ -7343,6 +7392,20 @@
       "name_zh-cn": "\u74E6\u5A1C\u8FEA\u65AF",
       "nation": "europe",
       "tier": 10,
+      "type": "Cruiser"
+    },
+    "4280202544": {
+      "name_en-us": "Dragon",
+      "name_zh-cn": "\u9F99\u9A91\u5175",
+      "nation": "europe",
+      "tier": 4,
+      "type": "Cruiser"
+    },
+    "4279153968": {
+      "name_en-us": "Kralj Petar I",
+      "name_zh-cn": "\u5F7C\u5F97\u4E00\u4E16",
+      "nation": "europe",
+      "tier": 5,
       "type": "Cruiser"
     },
     "4278105392": {
@@ -8673,6 +8736,13 @@
       "name_zh-cn": "\u76AE\u7EB3\u5854\u63D0\u5B89",
       "nation": "pan_asia",
       "tier": 8,
+      "type": "Cruiser"
+    },
+    "3340678352": {
+      "name_en-us": "Incheon B",
+      "name_zh-cn": "\u4EC1\u5DDDB",
+      "nation": "pan_asia",
+      "tier": 10,
       "type": "Cruiser"
     },
     "3332289744": {

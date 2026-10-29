@@ -88,6 +88,10 @@ public sealed class ShipCatalog
         return shipId;
     }
 
+    /// <summary>船名表里是否有该舰船（且带本地化名称）。</summary>
+    public bool IsKnown(string shipId)
+        => ships.TryGetValue(shipId, out ShipInfo info) && !string.IsNullOrEmpty(info.Name);
+
     public string GetTypeLabel(string shipId)
     {
         if (!ships.TryGetValue(shipId, out ShipInfo info))

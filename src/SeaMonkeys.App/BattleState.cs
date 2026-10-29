@@ -158,6 +158,9 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
     private DispatcherQueueTimer? observeTimer;
     private DispatcherQueue? dispatcher;
 
+    /// <summary>已触发过自动更新的船只 ID，避免同一次运行内反复请求。</summary>
+    private readonly HashSet<string> catalogUpdateTried = new();
+
     public ObservableCollection<ParticipantRow> Allies { get; } = new();
     public ObservableCollection<ParticipantRow> Enemies { get; } = new();
 
@@ -338,6 +341,7 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
             string mapLabel = MapCatalog.GetName(battle.MapId, battle.MapDisplayName);
             BattleTime = battle.StartTime.ToLocalTime().ToString("MM-dd HH:mm");
             PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(BattleTime)));
+            await EnsureShipCatalogAsync(battle);
             using var transport = new HttpVortexTransport(settings);
             var source = new VortexStatsSource(transport);
             var intake = new BattleIntake(source, settings);
@@ -424,6 +428,38 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
         {
             IsBusy = false;
             PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsBusy)));
+        }
+    }
+
+    /// <summary>对局里出现船名表未收录的舰船时，自动拉取一次最新船名表。</summary>
+    private async Task EnsureShipCatalogAsync(Battle battle)
+    {
+        string? unknown = battle.Participants
+            .Select(p => p.ShipId)
+            .FirstOrDefault(id => !string.IsNullOrEmpty(id)
+                && !ShipCatalog.Current.IsKnown(id)
+                && !catalogUpdateTried.Contains(id));
+        if (unknown is null)
+        {
+            return;
+        }
+
+        foreach (Participant p in battle.Participants)
+        {
+            catalogUpdateTried.Add(p.ShipId);
+        }
+
+        string url = AppSettings.Current.ShipCatalogUrl;
+        if (string.IsNullOrWhiteSpace(url))
+        {
+            return;
+        }
+
+        SetState("发现未收录舰船，更新船名表…", Summary, busy: true, progress: 0);
+        ShipCatalogUpdateResult result = await ShipCatalogUpdater.TryUpdateAsync(url);
+        if (result.Success && ShipCatalog.Current.IsKnown(unknown))
+        {
+            NotificationService.Success("船名表已更新");
         }
     }
 
