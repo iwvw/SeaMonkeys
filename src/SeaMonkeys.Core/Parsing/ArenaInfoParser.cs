@@ -19,11 +19,12 @@ public sealed class ArenaInfoParser
 
         byte[] bytes = new byte[stream.Length];
         stream.ReadExactly(bytes);
+        int headerOffset = ReadHeaderJsonOffset(bytes);
         int headerLength = ReadHeaderJsonLength(bytes);
-        string headerJson = Encoding.UTF8.GetString(bytes, 12, headerLength);
+        string headerJson = Encoding.UTF8.GetString(bytes, headerOffset, headerLength);
 
         // 莱斯塔（Korabli）版：头 JSON 之后紧跟 accountDBID 名单块（playersPublicInfo）。
-        int lestaBlock = FindJson(bytes, 12 + headerLength, '{');
+        int lestaBlock = FindJson(bytes, headerOffset + headerLength, '{');
         if (lestaBlock > 0 && Contains(bytes, lestaBlock, "playersPublicInfo"))
         {
             return ParseLesta(bytes, headerJson, lestaBlock, filePath);
@@ -95,9 +96,12 @@ public sealed class ArenaInfoParser
         }
     }
 
+    private static int ReadHeaderJsonOffset(byte[] bytes)
+        => bytes.Length > 0 && bytes[0] == 0x7B ? 0 : 12;
+
     private static int ReadHeaderJsonLength(byte[] bytes)
     {
-        if (bytes.Length < 12)
+        if (bytes.Length == 0)
         {
             throw new BattleParseException("FileFormatIncorrect");
         }
@@ -106,6 +110,11 @@ public sealed class ArenaInfoParser
         {
             // 纯 JSON 起始（未压缩）：整个内容即 JSON。
             return bytes.Length;
+        }
+
+        if (bytes.Length < 12)
+        {
+            throw new BattleParseException("FileFormatIncorrect");
         }
 
         if (bytes[0] == 0x12)
@@ -117,7 +126,7 @@ public sealed class ArenaInfoParser
             }
 
             int length = BitConverter.ToInt32(bytes, 8);
-            if (length <= 0 || length > 16 * 1024 * 1024)
+            if (length <= 0 || length > 16 * 1024 * 1024 || 12 + length > bytes.Length)
             {
                 throw new BattleParseException("FileFormatIncorrect");
             }

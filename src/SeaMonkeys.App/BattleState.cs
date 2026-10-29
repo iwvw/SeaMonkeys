@@ -405,6 +405,7 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
             SetState($"服务器 {server.ToDisplayName()} · 完成", Summary, busy: false, progress: 1);
             SaveHistory(battle, server, mapLabel, modeLabel, replayPath);
             NotificationService.Success($"已加载 {mapLabel} · {battle.Participants.Count} 人");
+            ClearErrorLog();
             TrimWorkingSet();
         }
         catch (Exception ex)
@@ -423,6 +424,20 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
         {
             IsBusy = false;
             PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsBusy)));
+        }
+    }
+
+    private static void ClearErrorLog()
+    {
+        try
+        {
+            File.Delete(Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "SeaMonkeys",
+                "last-error.log"));
+        }
+        catch
+        {
         }
     }
 
