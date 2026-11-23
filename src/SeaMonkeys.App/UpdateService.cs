@@ -3,6 +3,7 @@ using System.Net.Http;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json;
+using Microsoft.Win32;
 
 namespace SeaMonkeys.App;
 
@@ -168,7 +169,7 @@ public static class UpdateService
         sb.AppendLine(":WAIT");
         sb.AppendLine("tasklist /FI \"IMAGENAME eq SeaMonkeys.exe\" 2>nul | find /I \"SeaMonkeys.exe\" >nul");
         sb.AppendLine("if not errorlevel 1 ( timeout /t 1 /nobreak >nul & goto WAIT )");
-        sb.AppendLine($"start /wait \"\" \"{setup}\" /SILENT /SP- /NORESTART {InstallScopeFlag()}");
+        sb.AppendLine($"start /wait \"\" \"{setup}\" /SILENT /SP- /NORESTART /DIR=\"{app}\" {InstallScopeFlag()}");
         sb.AppendLine("if errorlevel 1 ( del \"%~f0\" & exit /b 1 )");
         sb.AppendLine($"del /f /q \"{setup}\" >nul 2>&1");
         sb.AppendLine($"start \"\" \"{app}\\SeaMonkeys.exe\"");
@@ -363,15 +364,54 @@ public static class UpdateService
 
     private static string InstallScopeFlag()
     {
-        string baseDir = Path.GetFullPath(AppContext.BaseDirectory);
-        string localApp = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
-        if (!string.IsNullOrEmpty(localApp) &&
-            baseDir.StartsWith(Path.GetFullPath(localApp), StringComparison.OrdinalIgnoreCase))
+        string baseDir = Path.GetFullPath(AppContext.BaseDirectory).TrimEnd('\\');
+
+        // 以现有卸载信息判断原安装是「所有用户」还是「当前用户」,避免静默更新装到另一作用域。
+        if (ScopeFromUninstall(Registry.LocalMachine, baseDir) is { } allUsers)
+        {
+            return allUsers ? "/ALLUSERS" : "/CURRENTUSER";
+        }
+
+        if (ScopeFromUninstall(Registry.CurrentUser, baseDir) == true)
         {
             return "/CURRENTUSER";
         }
 
-        return "/ALLUSERS";
+        // 回退:安装位置在用户目录下按当前用户,否则按所有用户。
+        string localApp = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        return !string.IsNullOrEmpty(localApp) &&
+               baseDir.StartsWith(Path.GetFullPath(localApp), StringComparison.OrdinalIgnoreCase)
+            ? "/CURRENTUSER"
+            : "/ALLUSERS";
+    }
+
+    /// <summary>在指定注册表根下查找 InstallLocation 等于当前目录的卸载项,命中返回 true。</summary>
+    private static bool? ScopeFromUninstall(RegistryKey root, string baseDir)
+    {
+        try
+        {
+            using RegistryKey? uninstall = root.OpenSubKey(
+                @"SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall");
+            if (uninstall is null)
+            {
+                return null;
+            }
+
+            foreach (string name in uninstall.GetSubKeyNames())
+            {
+                using RegistryKey? sub = uninstall.OpenSubKey(name);
+                if (sub?.GetValue("InstallLocation") is string location && location.Length > 0 &&
+                    string.Equals(Path.GetFullPath(location).TrimEnd('\\'), baseDir, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+        }
+        catch
+        {
+        }
+
+        return null;
     }
 
     private static bool ValidateArtifact(string path, bool expectExe)
