@@ -5,4 +5,7 @@
     <Project Path="src/SeaMonkeys.Probe/SeaMonkeys.Probe.csproj" />
     <Project Path="src/SeaMonkeys.App/SeaMonkeys.App.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/SeaMonkeys.Core.Tests/SeaMonkeys.Core.Tests.csproj" />
+  </Folder>
 </Solution>

@@ -7,6 +7,8 @@ namespace SeaMonkeys.Core.Intake;
 
 public sealed class BattleIntake
 {
+    private const int ProbeSampleCount = 3;
+
     private readonly VortexStatsSource source;
     private readonly SeaMonkeysSettings settings;
     private readonly ServerResolver serverResolver = new();
@@ -47,31 +49,48 @@ public sealed class BattleIntake
         Battle battle,
         CancellationToken cancellationToken)
     {
-        string? sampleName = battle.Participants
-            .Select(p => p.Name)
-            .FirstOrDefault(n => !string.IsNullOrWhiteSpace(n) && !n.StartsWith(':'));
+        cancellationToken.ThrowIfCancellationRequested();
 
-        if (sampleName is null)
+        string[] samples = battle.Participants
+            .Select(p => p.Name)
+            .Where(n => !string.IsNullOrWhiteSpace(n) && !n.StartsWith(':'))
+            .Distinct(StringComparer.Ordinal)
+            .Take(ProbeSampleCount)
+            .ToArray();
+
+        if (samples.Length == 0)
         {
             return Server.Auto;
         }
 
         var probes = ServerExtensions.AllConcrete.Select(async server =>
         {
-            try
+            int hits = 0;
+            foreach (string name in samples)
             {
-                long id = await source.SearchAccountIdAsync(server, sampleName, cancellationToken);
-                return (server, id);
+                try
+                {
+                    long id = await source.SearchAccountIdAsync(server, name, cancellationToken);
+                    if (id > 0)
+                    {
+                        hits++;
+                    }
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch
+                {
+                }
             }
-            catch
-            {
-                return (server, 0L);
-            }
+
+            return (server, hits);
         });
 
-        (Server server, long id)[] results = await Task.WhenAll(probes);
-        (Server server, long id) hit = results.FirstOrDefault(r => r.id > 0);
-        return hit.server;
+        (Server server, int hits)[] results = await Task.WhenAll(probes);
+        (Server server, int hits) best = results.OrderByDescending(r => r.hits).First();
+        return best.hits > 0 ? best.server : Server.Auto;
     }
 
     public async Task EnrichAsync(
@@ -98,8 +117,7 @@ public sealed class BattleIntake
                     participant.Statistics = WithWeightedWinrate(participant.Statistics, weighted);
                 }
 
-                onParticipantReady?.Report(participant);
-            }
+                }
             catch (OperationCanceledException)
             {
                 throw;
@@ -115,6 +133,8 @@ public sealed class BattleIntake
             {
                 progress?.Report(Interlocked.Increment(ref completed));
             }
+
+            onParticipantReady?.Report(participant);
         });
 
         await Task.WhenAll(tasks);

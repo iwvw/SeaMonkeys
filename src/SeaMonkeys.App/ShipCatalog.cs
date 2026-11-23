@@ -6,8 +6,6 @@ public sealed class ShipCatalog
 {
     private readonly Dictionary<string, ShipInfo> ships = new();
 
-    public static ShipCatalog Current { get; } = new();
-
     public string Version { get; private set; } = "-";
 
     public string Date { get; private set; } = "-";
@@ -17,6 +15,10 @@ public sealed class ShipCatalog
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "SeaMonkeys",
         "ships.json");
+
+    // 注意:静态字段按声明顺序初始化,UserCatalogPath 必须先于 Current,
+    // 否则 Current 构造时读不到用户船名表。
+    public static ShipCatalog Current { get; } = new();
 
     public ShipCatalog()
     {
@@ -35,46 +37,83 @@ public sealed class ShipCatalog
             }
             catch
             {
+                AtomicFile.Backup(UserCatalogPath);
                 // 用户表损坏，回退内置表。
             }
         }
 
-        Load(Path.Combine(AppContext.BaseDirectory, "Assets", "ships.json"));
+        try
+        {
+            Load(Path.Combine(AppContext.BaseDirectory, "Assets", "ships.json"));
+        }
+        catch
+        {
+        }
     }
 
     public void Load(string path)
     {
         if (!File.Exists(path))
         {
-            return;
+            throw new FileNotFoundException("catalog not found", path);
         }
 
         using FileStream stream = File.OpenRead(path);
         using JsonDocument document = JsonDocument.Parse(stream);
         JsonElement root = document.RootElement;
 
-        Version = root.TryGetProperty("version", out JsonElement v) ? v.GetString() ?? "-" : "-";
-        Date = root.TryGetProperty("date", out JsonElement d) ? d.GetString() ?? "-" : "-";
-
-        if (!root.TryGetProperty("ships", out JsonElement shipsElement))
+        if (root.ValueKind != JsonValueKind.Object ||
+            !root.TryGetProperty("ships", out JsonElement shipsElement) ||
+            shipsElement.ValueKind != JsonValueKind.Object)
         {
-            return;
+            throw new InvalidDataException("catalog missing ships object");
         }
 
-        ships.Clear();
+        var loaded = new Dictionary<string, ShipInfo>();
         foreach (JsonProperty property in shipsElement.EnumerateObject())
         {
-            string name = property.Value.TryGetProperty("name_zh-cn", out JsonElement zh)
-                ? zh.GetString() ?? string.Empty
-                : string.Empty;
-            string type = property.Value.TryGetProperty("type", out JsonElement t)
-                ? t.GetString() ?? string.Empty
-                : string.Empty;
-            int tier = property.Value.TryGetProperty("tier", out JsonElement tierElement)
-                ? tierElement.GetInt32()
-                : 0;
+            try
+            {
+                JsonElement value = property.Value;
+                if (value.ValueKind != JsonValueKind.Object)
+                {
+                    continue;
+                }
 
-            ships[property.Name] = new ShipInfo(name, type, tier);
+                string name = value.TryGetProperty("name_zh-cn", out JsonElement zh) && zh.ValueKind == JsonValueKind.String
+                    ? zh.GetString() ?? string.Empty
+                    : string.Empty;
+                string type = value.TryGetProperty("type", out JsonElement t) && t.ValueKind == JsonValueKind.String
+                    ? t.GetString() ?? string.Empty
+                    : string.Empty;
+                int tier = value.TryGetProperty("tier", out JsonElement tierElement) && tierElement.ValueKind == JsonValueKind.Number
+                    ? tierElement.GetInt32()
+                    : 0;
+
+                if (name.Length == 0)
+                {
+                    continue;
+                }
+
+                loaded[property.Name] = new ShipInfo(name, type, tier);
+            }
+            catch
+            {
+            }
+        }
+
+        if (loaded.Count == 0)
+        {
+            throw new InvalidDataException("catalog has no entries");
+        }
+
+        Version = root.TryGetProperty("version", out JsonElement v) && v.ValueKind == JsonValueKind.String ? v.GetString() ?? "-" : "-";
+        Date = root.TryGetProperty("date", out JsonElement d) && d.ValueKind == JsonValueKind.String ? d.GetString() ?? "-" : "-";
+
+        ships.Clear();
+        foreach (KeyValuePair<string, ShipInfo> kv in loaded)
+        {
+            ships[kv.Key] = kv.Value;
         }
     }
 

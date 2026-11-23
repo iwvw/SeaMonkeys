@@ -11,6 +11,9 @@ public enum NoticeKind
 /// <summary>窗口内浮层通知已停用；保留接口以便调用方继续编译。</summary>
 public static class NotificationService
 {
+    /// <summary>有新通知时触发(消息,级别)。</summary>
+    public static event Action<string, NoticeKind>? Notified;
+
     public static void Attach(object hostPanel)
     {
     }
@@ -22,5 +25,11 @@ public static class NotificationService
 
     public static void Show(string message, NoticeKind kind)
     {
+        if (string.IsNullOrWhiteSpace(message))
+        {
+            return;
+        }
+
+        Notified?.Invoke(message, kind);
     }
 }

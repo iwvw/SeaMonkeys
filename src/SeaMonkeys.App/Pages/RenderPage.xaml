@@ -34,7 +34,7 @@
                             <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="对局来源" />
                             <ComboBox x:Name="HistoryBox" HorizontalAlignment="Stretch"
                                       PlaceholderText="选择历史对局" SelectionChanged="History_Changed" />
-                            <Button Content="导入回放文件…" HorizontalAlignment="Stretch" Click="ImportReplay_Click" />
+                            <Button Content="导入回放文件…" HorizontalAlignment="Stretch" Click="ImportReplay_Click" x:Name="ImportReplayButton" />
                             <TextBlock x:Name="SourceText" Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        TextWrapping="Wrap" MaxLines="2"

@@ -58,13 +58,14 @@ public sealed class ParticipantRow
     public required string ShipDiv2Dmg { get; init; }
     public required string ShipDiv3Dmg { get; init; }
 
-    public static ParticipantRow From(Participant p)
+    public static ParticipantRow From(Participant p, Server server)
     {
         PlayerStatistics s = p.Statistics;
         bool ok = s.IsAvailable;
         double wr = s.WeightedWinrate;
         double totalWr = s.Winrate;
-        WatchStatus watch = WatchListRepository.Current.Get(p.Server, p.AccountId);
+        Server effective = p.Server != Server.Auto ? p.Server : server;
+        WatchStatus watch = WatchListRepository.Current.Get(effective, p.AccountId);
 
         return new ParticipantRow
         {
@@ -91,7 +92,7 @@ public sealed class ParticipantRow
             WinrateValue = ok ? s.Winrate : 0,
             IsAvailable = ok,
             AccountId = p.AccountId ?? string.Empty,
-            ServerCode = p.Server == Server.Auto ? string.Empty : p.Server.ToCode(),
+            ServerCode = effective == Server.Auto ? string.Empty : effective.ToCode(),
             Watch = watch,
             WatchLabel = WatchGlyph(watch),
             AccountSolo = ok ? $"{s.BattlesSolo:0}" : "-",
@@ -175,6 +176,8 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
     public string ActivityText { get; private set; } = string.Empty;
 
     private int loadGeneration;
+    private CancellationTokenSource? loadCts;
+    private Server lastServer = Server.Auto;
 
     /// <summary>每次对局数据（名单）就绪时自增，供视图判断是否需要重建卡片。</summary>
     public int DataVersion { get; private set; }
@@ -327,19 +330,28 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
     public async Task LoadFileAsync(string replayPath)
     {
         ApplySettings();
+
+        loadCts?.Cancel();
+        var cts = new CancellationTokenSource();
+        loadCts = cts;
+        CancellationToken token = cts.Token;
+
         int generation = ++loadGeneration;
         IsBusy = true;
         SetState($"解析 {Path.GetFileName(replayPath)} ...", Summary, busy: true, progress: 0);
 
         try
         {
-            Battle battle = await Task.Run(() => parser.Parse(replayPath));
+            Battle battle = await Task.Run(() => parser.Parse(replayPath), token);
+            token.ThrowIfCancellationRequested();
             lastBattle = battle;
             BattleType = string.IsNullOrEmpty(battle.GameType) ? battle.MatchGroup : battle.GameType;
             PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(BattleType)));
             string modeLabel = ModeLabel(battle.GameType, battle.MatchGroup);
             string mapLabel = MapCatalog.GetName(battle.MapId, battle.MapDisplayName);
-            BattleTime = battle.StartTime.ToLocalTime().ToString("MM-dd HH:mm");
+            BattleTime = battle.StartTime == DateTimeOffset.MinValue
+                ? "时间未知"
+                : battle.StartTime.ToLocalTime().ToString("MM-dd HH:mm");
             PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(BattleTime)));
             await EnsureShipCatalogAsync(battle);
             using var transport = new HttpVortexTransport(settings);
@@ -356,7 +368,7 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
             else
             {
                 SetState("识别服务器...", mapLabel, busy: true, progress: 0);
-                server = await intake.ResolveServerAsync(battle, ResolveGamePath() ?? string.Empty);
+                server = await intake.ResolveServerAsync(battle, ResolveGamePath() ?? string.Empty, token);
 
                 // 首次自动识别出服务器后固化到设置：下次直接使用，不再识别；
                 // 仅当用户在设置里手动切回「自动」或改选其它服务器时才重新判定。
@@ -368,8 +380,11 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
             }
 
             // 先占位上屏：显示昵称/舰船，战绩栏留空，随后逐个填充。
+            token.ThrowIfCancellationRequested();
+            lastServer = server;
             FillRows(battle);
             DataVersion++;
+            UpdateAverages();
 
             int total = battle.Participants.Count;
             var progress = new Progress<int>(done =>
@@ -384,13 +399,12 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
             {
                 if (generation == loadGeneration)
                 {
-                    FillRows(battle);
-                    DataVersion++;
-                    Changed?.Invoke(this, EventArgs.Empty);
+                    QueueRefresh(battle);
                 }
             });
 
-            await intake.EnrichAsync(battle, server, progress, onReady);
+            await intake.EnrichAsync(battle, server, progress, onReady, token);
+            token.ThrowIfCancellationRequested();
             // 作废该代号：排在完成之后的进度回调不再置回忙碌。
             loadGeneration++;
 
@@ -399,12 +413,7 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
 
             (AllyAvgBattles, AllyAvgWinrate, AllyAvgWeighted) = Averages(Allies);
             (EnemyAvgBattles, EnemyAvgWinrate, EnemyAvgWeighted) = Averages(Enemies);
-            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(AllyAvgBattles)));
-            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(AllyAvgWinrate)));
-            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(AllyAvgWeighted)));
-            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(EnemyAvgBattles)));
-            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(EnemyAvgWinrate)));
-            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(EnemyAvgWeighted)));
+            NotifyAverages();
 
             SetState($"服务器 {server.ToDisplayName()} · 完成", Summary, busy: false, progress: 1);
             SaveHistory(battle, server, mapLabel, modeLabel, replayPath);
@@ -412,8 +421,24 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
             ClearErrorLog();
             TrimWorkingSet();
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
         {
+        }
+        catch (SeaMonkeys.Core.Parsing.BattleParseException ex) when (ReferenceEquals(loadCts, cts))
+        {
+            SetState($"失败:{ex.Message}", Summary, busy: false, progress: 0);
+            NotificationService.Error($"加载失败:{ex.Message}");
+            try
+            {
+                File.WriteAllText(
+                    Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "SeaMonkeys", "last-error.log"),
+                    ex.ToString());
+            }
+            catch { }
+        }
+        catch (Exception ex) when (ReferenceEquals(loadCts, cts))
+        {
+            arenaLocator?.RollbackLast();
             SetState($"失败：{ex.Message}", Summary, busy: false, progress: 0);
             NotificationService.Error($"加载失败：{ex.Message}");
             try
@@ -426,8 +451,14 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
         }
         finally
         {
-            IsBusy = false;
-            PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsBusy)));
+            if (ReferenceEquals(loadCts, cts))
+            {
+                loadCts = null;
+                IsBusy = false;
+                PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(IsBusy)));
+            }
+
+            cts.Dispose();
         }
     }
 
@@ -478,7 +509,10 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
     }
 
     /// <summary>观察名单变化后刷新高亮。</summary>
-    public void RefreshWatchHighlight()
+    public void RefreshWatchHighlight() => RefreshRows();
+
+    /// <summary>按当前设置重建两栏行(排序/高亮等设置变更后刷新)。</summary>
+    public void RefreshRows()
     {
         if (lastBattle is not null)
         {
@@ -488,6 +522,51 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
         }
     }
 
+    private bool refreshQueued;
+
+    private void QueueRefresh(Battle battle)
+    {
+        if (refreshQueued)
+        {
+            return;
+        }
+
+        refreshQueued = true;
+
+        void Apply()
+        {
+            refreshQueued = false;
+            if (ReferenceEquals(battle, lastBattle))
+            {
+                FillRows(battle);
+                DataVersion++;
+                Changed?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        if (dispatcher is null || !dispatcher.TryEnqueue(Apply))
+        {
+            Apply();
+        }
+    }
+
+    private void UpdateAverages()
+    {
+        (AllyAvgBattles, AllyAvgWinrate, AllyAvgWeighted) = Averages(Allies);
+        (EnemyAvgBattles, EnemyAvgWinrate, EnemyAvgWeighted) = Averages(Enemies);
+        NotifyAverages();
+    }
+
+    private void NotifyAverages()
+    {
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(AllyAvgBattles)));
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(AllyAvgWinrate)));
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(AllyAvgWeighted)));
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(EnemyAvgBattles)));
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(EnemyAvgWinrate)));
+        PropertyChanged?.Invoke(this, new System.ComponentModel.PropertyChangedEventArgs(nameof(EnemyAvgWeighted)));
+    }
+
     /// <summary>按当前参与者状态重建两栏行（用于实时上屏）。</summary>
     private void FillRows(Battle battle)
     {
@@ -495,11 +574,11 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
         Enemies.Clear();
         foreach (Participant p in Sort(battle.Allies))
         {
-            Allies.Add(ParticipantRow.From(p));
+            Allies.Add(ParticipantRow.From(p, lastServer));
         }
         foreach (Participant p in Sort(battle.Enemies))
         {
-            Enemies.Add(ParticipantRow.From(p));
+            Enemies.Add(ParticipantRow.From(p, lastServer));
         }
     }
 
@@ -535,7 +614,7 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
     }
 
     private static double ParsePct(string value)
-        => double.TryParse(value.TrimEnd('%'), out double v) ? v / 100 : 0;
+        => double.TryParse(value.TrimEnd('%'), System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out double v) ? v / 100 : -1;
 
     [System.Runtime.InteropServices.DllImport("psapi.dll", SetLastError = true)]
     [return: System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.Bool)]

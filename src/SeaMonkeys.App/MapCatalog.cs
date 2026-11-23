@@ -69,5 +69,14 @@ public static class MapCatalog
     };
 
     public static string GetName(int mapId, string fallback)
-        => Names.TryGetValue(mapId, out string? name) ? name : fallback;
+    {
+        if (mapId > 0 && Names.TryGetValue(mapId, out string? name))
+        {
+            return name;
+        }
+
+        return string.IsNullOrWhiteSpace(fallback)
+            ? (mapId > 0 ? $"未知地图 #{mapId}" : "未知地图")
+            : fallback;
+    }
 }

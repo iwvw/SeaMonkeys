@@ -21,9 +21,11 @@ public sealed partial class HistoryPage : Page, INotifyPropertyChanged
         var entries = BattleHistoryRepository.Current.Entries
             .Select(e => new
             {
-                Time = e.StartTime.ToLocalTime().ToString("MM-dd HH:mm"),
+                Time = e.StartTime == DateTimeOffset.MinValue
+                    ? "时间未知"
+                    : e.StartTime.ToLocalTime().ToString("yyyy-MM-dd HH:mm"),
                 Title = $"{e.Server} · {e.MapName} · {e.Mode} · {e.PlayerCount} 人",
-                Averages = $"友军 {e.AllyAvgWeighted:P1} / 敌军 {e.EnemyAvgWeighted:P1}",
+                Averages = $"友军 {FormatPct(e.AllyAvgWeighted)} / 敌军 {FormatPct(e.EnemyAvgWeighted)}",
             })
             .ToList();
 
@@ -32,4 +34,7 @@ public sealed partial class HistoryPage : Page, INotifyPropertyChanged
         StatusText = entries.Count == 0 ? "本地留存的对局记录" : $"共 {entries.Count} 局记录";
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(StatusText)));
     }
+
+    private static string FormatPct(double value)
+        => value < 0 ? "-" : value.ToString("P1", System.Globalization.CultureInfo.InvariantCulture);
 }

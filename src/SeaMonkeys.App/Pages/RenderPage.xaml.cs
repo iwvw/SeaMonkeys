@@ -45,10 +45,11 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
         foreach (BattleHistoryEntry entry in BattleHistoryRepository.Current.Entries)
         {
             historyOptions.Add(new HistoryOption(
-                $"{entry.StartTime.ToLocalTime():MM-dd HH:mm} · {entry.MapName} · {entry.Mode}",
+                $"{(entry.StartTime == DateTimeOffset.MinValue ? "时间未知" : entry.StartTime.ToLocalTime().ToString("yyyy-MM-dd HH:mm"))} · {entry.MapName} · {entry.Mode}",
                 entry.ReplayPath));
         }
 
+        HistoryBox.ItemsSource = null;
         HistoryBox.ItemsSource = historyOptions;
         previewValid = false;
         syncing = false;
@@ -100,6 +101,7 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
         RenderButton.IsEnabled = installed && hasReplay && !busy && previewValid;
         CancelButton.Visibility = busy ? Visibility.Visible : Visibility.Collapsed;
         HistoryBox.IsEnabled = !busy;
+        ImportReplayButton.IsEnabled = !busy;
         DownloadToolButton.IsEnabled = !busy;
     }
 
@@ -134,24 +136,31 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
 
     private async void ImportReplay_Click(object sender, RoutedEventArgs e)
     {
-        var picker = new Windows.Storage.Pickers.FileOpenPicker();
-        picker.FileTypeFilter.Add(".wowsreplay");
-        picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.ComputerFolder;
-
-        IntPtr hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.Current.MainWindow);
-        WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
-
-        Windows.Storage.StorageFile? file = await picker.PickSingleFileAsync();
-        if (file is null)
+        try
         {
-            return;
-        }
+            var picker = new Windows.Storage.Pickers.FileOpenPicker();
+            picker.FileTypeFilter.Add(".wowsreplay");
+            picker.SuggestedStartLocation = Windows.Storage.Pickers.PickerLocationId.ComputerFolder;
 
-        selectedReplayPath = file.Path;
-        HistoryBox.SelectedItem = null;
-        SourceText.Text = file.Path;
-        InvalidatePreview();
-        await PreviewAsync();
+            IntPtr hwnd = WinRT.Interop.WindowNative.GetWindowHandle(App.Current.MainWindow);
+            WinRT.Interop.InitializeWithWindow.Initialize(picker, hwnd);
+
+            Windows.Storage.StorageFile? file = await picker.PickSingleFileAsync();
+            if (file is null)
+            {
+                return;
+            }
+
+            selectedReplayPath = file.Path;
+            HistoryBox.SelectedItem = null;
+            SourceText.Text = file.Path;
+            InvalidatePreview();
+            await PreviewAsync();
+        }
+        catch (Exception ex)
+        {
+            ReportError("导入回放", ex);
+        }
     }
 
     private void Codec_Changed(object sender, SelectionChangedEventArgs e)
@@ -204,10 +213,22 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
         UpdateActionState();
         RenderStatusText.Text = "准备下载…";
 
-        var log = new Progress<string>(text => RenderStatusText.Text = text);
-        bool ok = await ReplayRenderer.InstallAsync(log);
+        bool ok;
+        try
+        {
+            var log = new Progress<string>(text => RenderStatusText.Text = text);
+            ok = await ReplayRenderer.InstallAsync(log);
+        }
+        catch (Exception ex)
+        {
+            ok = false;
+            ReportError("下载渲染工具", ex);
+        }
+        finally
+        {
+            busy = false;
+        }
 
-        busy = false;
         RefreshToolStatus();
         RenderStatusText.Text = ok ? "渲染工具安装完成" : "渲染工具安装失败，请检查加速前缀或网络";
         UpdateActionState();
@@ -220,7 +241,14 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
 
     private async void Preview_Click(object sender, RoutedEventArgs e)
     {
-        await PreviewAsync();
+        try
+        {
+            await PreviewAsync();
+        }
+        catch (Exception ex)
+        {
+            ReportError("预览", ex);
+        }
     }
 
     /// <summary>渲染单帧预览；成功后启用导出。</summary>
@@ -243,9 +271,43 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
             "SeaMonkeys", "render-preview");
 
+        try
+        {
+            if (Directory.Exists(dir))
+            {
+                foreach (string old in Directory.GetFiles(dir, "preview_*.png"))
+                {
+                    try
+                    {
+                        File.Delete(old);
+                    }
+                    catch
+                    {
+                    }
+                }
+            }
+        }
+        catch
+        {
+        }
+
         string lastLog = string.Empty;
-        var log = new Progress<string>(text => lastLog = text);
-        string? png = await ReplayRenderer.PreviewAsync(replay, dir, log);
+        string? png;
+        try
+        {
+            var log = new Progress<string>(text => lastLog = text);
+            png = await ReplayRenderer.PreviewAsync(replay, dir, log);
+        }
+        catch (Exception ex)
+        {
+            busy = false;
+            PreviewPlaceholder.Text = "预览失败";
+            PreviewPlaceholder.Visibility = Visibility.Visible;
+            RenderStatusText.Text = $"预览失败:{ex.Message}";
+            ReportError("预览", ex);
+            UpdateActionState();
+            return;
+        }
 
         busy = false;
 
@@ -270,6 +332,27 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
     }
 
     private async void Render_Click(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            await RenderCoreAsync();
+        }
+        catch (Exception ex)
+        {
+            RenderStatusText.Text = $"渲染失败:{ex.Message}";
+            ReportError("渲染视频", ex);
+        }
+        finally
+        {
+            cts?.Dispose();
+            cts = null;
+            busy = false;
+            RenderProgressBar.Visibility = Visibility.Collapsed;
+            UpdateActionState();
+        }
+    }
+
+    private async Task RenderCoreAsync()
     {
         if (!previewValid)
         {
@@ -321,7 +404,15 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
         if (mp4 is not null)
         {
             lastResultPath = mp4;
-            long mb = new FileInfo(mp4).Length / (1024 * 1024);
+            long mb = 0;
+            try
+            {
+                mb = new FileInfo(mp4).Length / (1024 * 1024);
+            }
+            catch (Exception ex)
+            {
+                ReportError("读取渲染结果", ex);
+            }
             ResultText.Text = $"渲染完成：{Path.GetFileName(mp4)}（{mb} MB）";
             ResultPanel.Visibility = Visibility.Visible;
             RenderStatusText.Text = mp4;
@@ -353,23 +444,54 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
 
     private async void OpenResult_Click(object sender, RoutedEventArgs e)
     {
-        if (lastResultPath is null || !File.Exists(lastResultPath))
+        try
         {
-            return;
-        }
+            if (lastResultPath is null || !File.Exists(lastResultPath))
+            {
+                return;
+            }
 
-        var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(lastResultPath);
-        await Windows.System.Launcher.LaunchFileAsync(file);
+            var file = await Windows.Storage.StorageFile.GetFileFromPathAsync(lastResultPath);
+            await Windows.System.Launcher.LaunchFileAsync(file);
+        }
+        catch (Exception ex)
+        {
+            ReportError("打开结果文件", ex);
+        }
     }
 
     private void OpenResultFolder_Click(object sender, RoutedEventArgs e)
     {
-        if (lastResultPath is null || !File.Exists(lastResultPath))
+        try
         {
-            return;
-        }
+            if (lastResultPath is null || !File.Exists(lastResultPath))
+            {
+                return;
+            }
 
-        System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{lastResultPath}\"");
+            System.Diagnostics.Process.Start("explorer.exe", $"/select,\"{lastResultPath}\"");
+        }
+        catch (Exception ex)
+        {
+            ReportError("打开结果目录", ex);
+        }
+    }
+
+    private static void ReportError(string where, Exception ex)
+    {
+        try
+        {
+            string dir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "SeaMonkeys");
+            Directory.CreateDirectory(dir);
+            File.AppendAllText(
+                Path.Combine(dir, "render-error.log"),
+                $"{DateTimeOffset.Now:yyyy-MM-dd HH:mm:ss} [{where}] {ex}{Environment.NewLine}");
+        }
+        catch
+        {
+        }
     }
 
     /// <summary>渲染阶段名转为中文。</summary>

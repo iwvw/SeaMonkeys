@@ -126,7 +126,11 @@ public static class GameLocator
                 return Array.Empty<string>();
             }
 
-            content = File.ReadAllText(libraryFile);
+            using (var stream = new FileStream(libraryFile, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+            using (var reader = new StreamReader(stream))
+            {
+                content = reader.ReadToEnd();
+            }
         }
         catch
         {
@@ -161,15 +165,22 @@ public static class GameLocator
             return null;
         }
 
-        return Directory
-            .EnumerateFiles(replayDirectory, "tempArenaInfo.json", SearchOption.AllDirectories)
-            .Concat(Directory.EnumerateFiles(replayDirectory, "*.wowsreplay", SearchOption.AllDirectories))
-            .Concat(Directory.EnumerateFiles(replayDirectory, "*.korablireplay", SearchOption.AllDirectories))
-            .Where(f => !Path.GetFileName(f).StartsWith("temp.", StringComparison.OrdinalIgnoreCase))
-            .Select(path => new FileInfo(path))
-            .OrderByDescending(file => file.LastWriteTime)
-            .Select(file => file.FullName)
-            .FirstOrDefault();
+        try
+        {
+            return Directory
+                .EnumerateFiles(replayDirectory, "tempArenaInfo.json", SearchOption.AllDirectories)
+                .Concat(Directory.EnumerateFiles(replayDirectory, "*.wowsreplay", SearchOption.AllDirectories))
+                .Concat(Directory.EnumerateFiles(replayDirectory, "*.korablireplay", SearchOption.AllDirectories))
+                .Where(f => !Path.GetFileName(f).StartsWith("temp.", StringComparison.OrdinalIgnoreCase))
+                .Select(path => new FileInfo(path))
+                .OrderByDescending(file => file.LastWriteTime)
+                .Select(file => file.FullName)
+                .FirstOrDefault();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     private static string? SearchUninstallKey(RegistryKey? uninstall)
@@ -185,7 +196,7 @@ public static class GameLocator
             {
                 using RegistryKey? key = uninstall.OpenSubKey(subKeyName);
                 string publisher = (key?.GetValue("Publisher") ?? string.Empty).ToString() ?? string.Empty;
-                if (!Publishers.Contains(publisher))
+                if (!Publishers.Any(p => p.Equals(publisher, StringComparison.OrdinalIgnoreCase)))
                 {
                     continue;
                 }

@@ -67,6 +67,11 @@ public static class UpdateService
             }
 
             string latest = tag.TrimStart('v', 'V');
+            if (!IsSafeVersion(latest))
+            {
+                return UpdateInfo.None;
+            }
+
             if (CompareVersions(latest, CurrentVersion()) <= 0)
             {
                 return UpdateInfo.None;
@@ -95,9 +100,9 @@ public static class UpdateService
         try
         {
             string version = info.LatestVersion;
-            string workDir = Path.Combine(Path.GetTempPath(), "SeaMonkeys", $"update-{version}");
-            CleanStaleDownloads();
+            string workDir = Path.Combine(Path.GetTempPath(), "SeaMonkeys", $"update-{version}-{Guid.NewGuid():N}");
             Directory.CreateDirectory(workDir);
+            CleanStaleDownloads(workDir);
 
             bool installed = IsInstalled;
             string? downloaded;
@@ -121,18 +126,26 @@ public static class UpdateService
                 return false;
             }
 
-            string script = installed
+            bool useInstaller = downloaded.EndsWith(".exe", StringComparison.OrdinalIgnoreCase);
+            if (!ValidateArtifact(downloaded, useInstaller))
+            {
+                return false;
+            }
+
+            string script = useInstaller
                 ? WriteInstallerScript(downloaded, workDir)
                 : WritePortableScript(downloaded, workDir);
 
-            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo
+            var psi = new System.Diagnostics.ProcessStartInfo
             {
                 FileName = "cmd.exe",
-                Arguments = $"/c \"\"{script}\"\"",
                 UseShellExecute = false,
                 CreateNoWindow = true,
                 WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden,
-            });
+            };
+            psi.ArgumentList.Add("/c");
+            psi.ArgumentList.Add(script);
+            System.Diagnostics.Process.Start(psi);
 
             // 硬退出：Application.Exit() 会等消息循环收尾，更新脚本的等待轮询可能一直看不到进程退出。
             Environment.Exit(0);
@@ -155,7 +168,8 @@ public static class UpdateService
         sb.AppendLine(":WAIT");
         sb.AppendLine("tasklist /FI \"IMAGENAME eq SeaMonkeys.exe\" 2>nul | find /I \"SeaMonkeys.exe\" >nul");
         sb.AppendLine("if not errorlevel 1 ( timeout /t 1 /nobreak >nul & goto WAIT )");
-        sb.AppendLine($"start /wait \"\" \"{setup}\" /SILENT /SP- /NORESTART");
+        sb.AppendLine($"start /wait \"\" \"{setup}\" /SILENT /SP- /NORESTART {InstallScopeFlag()}");
+        sb.AppendLine("if errorlevel 1 ( del \"%~f0\" & exit /b 1 )");
         sb.AppendLine($"del /f /q \"{setup}\" >nul 2>&1");
         sb.AppendLine($"start \"\" \"{app}\\SeaMonkeys.exe\"");
         sb.AppendLine("del \"%~f0\"");
@@ -177,6 +191,7 @@ public static class UpdateService
         sb.AppendLine("if not errorlevel 1 ( timeout /t 1 /nobreak >nul & goto WAIT )");
         sb.AppendLine($"powershell -NoProfile -ExecutionPolicy Bypass -Command \"Expand-Archive -LiteralPath '{zip}' -DestinationPath '{extract}' -Force\"");
         sb.AppendLine($"robocopy \"{extract}\\SeaMonkeys\" \"{app}\" /E /NFL /NDL /NJH /NJS /R:1 /W:1 >nul");
+        sb.AppendLine("if errorlevel 8 ( del \"%~f0\" & exit /b 1 )");
         sb.AppendLine($"rmdir /s /q \"{extract}\"");
         sb.AppendLine($"del /f /q \"{zip}\" >nul 2>&1");
         sb.AppendLine($"start \"\" \"{app}\\SeaMonkeys.exe\"");
@@ -186,14 +201,31 @@ public static class UpdateService
     }
 
     /// <summary>清理历史更新下载，避免临时目录越堆越大。</summary>
-    private static void CleanStaleDownloads()
+    private static void CleanStaleDownloads(string currentWorkDir)
     {
         try
         {
             string root = Path.Combine(Path.GetTempPath(), "SeaMonkeys");
-            if (Directory.Exists(root))
+            if (!Directory.Exists(root))
             {
-                Directory.Delete(root, recursive: true);
+                return;
+            }
+
+            string current = Path.GetFullPath(currentWorkDir).TrimEnd('\\');
+            foreach (string dir in Directory.GetDirectories(root, "update-*"))
+            {
+                if (string.Equals(Path.GetFullPath(dir).TrimEnd('\\'), current, StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                try
+                {
+                    Directory.Delete(dir, recursive: true);
+                }
+                catch
+                {
+                }
             }
         }
         catch
@@ -328,6 +360,44 @@ public static class UpdateService
 
         return null;
     }
+
+    private static string InstallScopeFlag()
+    {
+        string baseDir = Path.GetFullPath(AppContext.BaseDirectory);
+        string localApp = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        if (!string.IsNullOrEmpty(localApp) &&
+            baseDir.StartsWith(Path.GetFullPath(localApp), StringComparison.OrdinalIgnoreCase))
+        {
+            return "/CURRENTUSER";
+        }
+
+        return "/ALLUSERS";
+    }
+
+    private static bool ValidateArtifact(string path, bool expectExe)
+    {
+        try
+        {
+            using FileStream stream = File.OpenRead(path);
+            Span<byte> head = stackalloc byte[2];
+            if (stream.Read(head) < 2)
+            {
+                return false;
+            }
+
+            bool isZip = head[0] == 0x50 && head[1] == 0x4B;
+            bool isExe = head[0] == 0x4D && head[1] == 0x5A;
+            return expectExe ? isExe : isZip;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsSafeVersion(string version)
+        => version.Length is > 0 and <= 32 &&
+           version.All(c => char.IsAsciiLetterOrDigit(c) || c is '.' or '-' or '_');
 
     private static string CurrentVersion()
     {

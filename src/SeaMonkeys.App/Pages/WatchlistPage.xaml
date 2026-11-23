@@ -22,9 +22,9 @@
         <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" Padding="36,0,36,0">
             <Border>
                 <StackPanel Padding="0,0,0,24" MaxWidth="{StaticResource PageContentMaxWidth}" Spacing="12">
-                    <Grid Style="{StaticResource CardStyle}" Padding="24">
+                    <Grid x:Name="EmptyHint" Style="{StaticResource CardStyle}" Padding="24">
                         <StackPanel Spacing="6">
-                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="名单为空" x:Name="EmptyHint" />
+                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="名单为空" />
                             <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        Text="可在战场页右键玩家，标记为 Positive / Negtive / Cheater。" />

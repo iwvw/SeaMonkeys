@@ -38,6 +38,14 @@ jobs:
             -p:Platform=x64
 
       # 校验发布脚本可跑通（仅合并版便携包，不编译安装包，避免 CI 依赖 Inno）。
+      - name: Build Probe
+        shell: pwsh
+        run: dotnet build src/SeaMonkeys.Probe/SeaMonkeys.Probe.csproj -c Release
+
+      - name: Test Core
+        shell: pwsh
+        run: dotnet test tests/SeaMonkeys.Core.Tests/SeaMonkeys.Core.Tests.csproj -c Release
+
       - name: Verify release script (portable only)
         shell: pwsh
         run: |

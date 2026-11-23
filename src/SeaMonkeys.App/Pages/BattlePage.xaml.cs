@@ -37,7 +37,6 @@ public sealed partial class BattlePage : Page
 
         AlliesGrid.SizeChanged += (_, _) => ScheduleRebuild();
         EnemiesGrid.SizeChanged += (_, _) => ScheduleRebuild();
-        Services.ThemeManager.ThemeChanged += OnThemeChanged;
     }
 
     private void OnThemeChanged(object? sender, EventArgs e)
@@ -85,7 +84,10 @@ public sealed partial class BattlePage : Page
 
     private async void OnLoaded(object sender, RoutedEventArgs e)
     {
+        State.Changed -= OnStateChanged;
         State.Changed += OnStateChanged;
+        Services.ThemeManager.ThemeChanged -= OnThemeChanged;
+        Services.ThemeManager.ThemeChanged += OnThemeChanged;
 
         if (XamlRoot is not null)
         {
@@ -110,6 +112,7 @@ public sealed partial class BattlePage : Page
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
         State.Changed -= OnStateChanged;
+        Services.ThemeManager.ThemeChanged -= OnThemeChanged;
         if (XamlRoot is not null)
         {
             XamlRoot.Changed -= OnXamlRootChanged;

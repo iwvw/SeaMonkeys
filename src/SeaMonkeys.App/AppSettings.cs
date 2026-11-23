@@ -11,6 +11,14 @@ public sealed class AppSettings
         "SeaMonkeys",
         "settings.json");
 
+    private static readonly JsonSerializerOptions SerializerOptions = new()
+    {
+        WriteIndented = true,
+        AllowTrailingCommas = true,
+        ReadCommentHandling = JsonCommentHandling.Skip,
+        PropertyNameCaseInsensitive = true,
+    };
+
     public static AppSettings Current { get; } = Load();
 
     private const int CurrentSettingsVersion = 5;
@@ -33,7 +41,7 @@ public sealed class AppSettings
     /// <summary>背景材质：0=亚克力，1=Mica，2=纯色。</summary>
     public int BackdropStyle { get; set; } = 1;
 
-    /// <summary>配色风格：0=无颜色，1=4色，2=8色，3=彩虹。</summary>
+    /// <summary>配色风格：0=无颜色，1=4色，2=分类色，3=彩虹。</summary>
     public int ColorStyle { get; set; } = 2;
 
     public string GamePath { get; set; } = string.Empty;
@@ -107,7 +115,7 @@ public sealed class AppSettings
             if (File.Exists(FilePath))
             {
                 string json = File.ReadAllText(FilePath);
-                AppSettings? loaded = JsonSerializer.Deserialize<AppSettings>(json);
+                AppSettings? loaded = JsonSerializer.Deserialize<AppSettings>(json, SerializerOptions);
                 if (loaded is not null)
                 {
                     bool migrated = loaded.Migrate();
@@ -122,6 +130,7 @@ public sealed class AppSettings
         }
         catch
         {
+            AtomicFile.Backup(FilePath);
         }
 
         return new AppSettings();
@@ -204,8 +213,8 @@ public sealed class AppSettings
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(this, new JsonSerializerOptions { WriteIndented = true }));
+            SettingsVersion = CurrentSettingsVersion;
+            AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(this, SerializerOptions));
         }
         catch
         {

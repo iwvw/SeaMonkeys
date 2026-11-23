@@ -33,14 +33,16 @@ public sealed class BattleHistoryPlayer
 /// <summary>本地对局历史（JSON 列表，最多保留 N 条）。</summary>
 public sealed class BattleHistoryRepository
 {
-    public static BattleHistoryRepository Current { get; } = new();
-
     private const int MaxEntries = 200;
 
+    // 注意:静态字段按声明顺序初始化,FilePath 必须先于 Current,
+    // 否则 Current 构造时 FilePath 为 null,启动时不会加载历史。
     private static readonly string FilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "SeaMonkeys",
         "History.json");
+
+    public static BattleHistoryRepository Current { get; } = new();
 
     private List<BattleHistoryEntry> entries = new();
 
@@ -60,6 +62,7 @@ public sealed class BattleHistoryRepository
         }
         catch
         {
+            AtomicFile.Backup(FilePath);
             entries = new();
         }
     }
@@ -68,8 +71,7 @@ public sealed class BattleHistoryRepository
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = true }));
+            AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(entries, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch
         {
@@ -79,7 +81,10 @@ public sealed class BattleHistoryRepository
     public void Add(BattleHistoryEntry entry)
     {
         // 同一开战时间视为同一局，去重。
-        entries.RemoveAll(e => e.StartTime == entry.StartTime);
+        if (entry.StartTime != DateTimeOffset.MinValue)
+        {
+            entries.RemoveAll(e => e.StartTime == entry.StartTime);
+        }
         entries.Insert(0, entry);
         if (entries.Count > MaxEntries)
         {

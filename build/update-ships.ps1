@@ -74,7 +74,7 @@ Write-Host "[ships] old=$oldCount new=$newCount (version=$($new.version) date=$(
 Copy-Item -LiteralPath $tmpOut -Destination $target -Force
 Write-Host "[ships] updated $target" -ForegroundColor Green
 
-# 同步到自建代理（momomi.dmuk.org/ships.json），供客户端「立即更新」拉取。
+# 同步到自建代理（SEAMONKEYS_UPLOAD_TARGET 指定的地址），供客户端「立即更新」拉取。
 if ($SkipUpload) {
     Write-Host "[ships] skip upload" -ForegroundColor Yellow
     exit 0
@@ -88,11 +88,18 @@ if (-not (Test-Path -LiteralPath $pscp)) {
 }
 
 $env:PATH += ";$puttyDir"
-$hostKey = "ssh-ed25519 255 SHA256:k/4goPO/jzj27T/B3bFMZ+oENip+E2rWPeWBdoQMjLk"
-$remote = "root@189.1.217.109:/opt/1panel/www/sites/momomi.dmuk.org/index/ships.json"
+$hostKey = $env:SEAMONKEYS_UPLOAD_HOSTKEY
+$remote = $env:SEAMONKEYS_UPLOAD_TARGET
+if ([string]::IsNullOrWhiteSpace($remote)) {
+    Write-Host "[ships] SEAMONKEYS_UPLOAD_TARGET not set; skip upload" -ForegroundColor Yellow
+    exit 0
+}
 
-Write-Host "[ships] uploading to momomi.dmuk.org..." -ForegroundColor Cyan
-& $pscp -batch -hostkey $hostKey -pw "ssln5014." -P 22 -q $target $remote
+Write-Host "[ships] uploading ship catalog..." -ForegroundColor Cyan
+$pscpArgs = @("-batch", "-P", "22", "-q")
+if (-not [string]::IsNullOrWhiteSpace($hostKey)) { $pscpArgs += @("-hostkey", $hostKey) }
+if (-not [string]::IsNullOrWhiteSpace($env:SEAMONKEYS_UPLOAD_PASSWORD)) { $pscpArgs += @("-pw", $env:SEAMONKEYS_UPLOAD_PASSWORD) }
+& $pscp @pscpArgs $target $remote
 if ($LASTEXITCODE -ne 0) {
     Write-Host "[ships] upload FAILED (exit $LASTEXITCODE)" -ForegroundColor Red
     exit $LASTEXITCODE
@@ -100,5 +107,14 @@ if ($LASTEXITCODE -ne 0) {
 
 $env:PATH += ";$puttyDir"
 $plink = Join-Path $puttyDir "plink.exe"
-& $plink -batch -hostkey $hostKey -ssh -P 22 -pw "ssln5014." root@189.1.217.109 "chmod 644 /opt/1panel/www/sites/momomi.dmuk.org/index/ships.json && curl -sL -o /dev/null -w 'verify %{http_code} %{size_download}\n' https://momomi.dmuk.org/ships.json"
-Write-Host "[ships] uploaded to https://momomi.dmuk.org/ships.json" -ForegroundColor Green
+$remoteHost = ($remote -split ':', 2)[0]
+$remotePath = ($remote -split ':', 2)[1]
+$plinkArgs = @("-batch", "-ssh", "-P", "22")
+if (-not [string]::IsNullOrWhiteSpace($hostKey)) { $plinkArgs += @("-hostkey", $hostKey) }
+if (-not [string]::IsNullOrWhiteSpace($env:SEAMONKEYS_UPLOAD_PASSWORD)) { $plinkArgs += @("-pw", $env:SEAMONKEYS_UPLOAD_PASSWORD) }
+$remoteCmd = "chmod 644 $remotePath"
+if (-not [string]::IsNullOrWhiteSpace($env:SEAMONKEYS_UPLOAD_VERIFY_URL)) {
+    $remoteCmd += " && curl -sL -o /dev/null -w 'verify %{http_code} %{size_download}\n' $env:SEAMONKEYS_UPLOAD_VERIFY_URL"
+}
+& $plink @plinkArgs $remoteHost $remoteCmd
+Write-Host "[ships] uploaded" -ForegroundColor Green

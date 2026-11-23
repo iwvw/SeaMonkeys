@@ -17,6 +17,22 @@ public static class ShipDataExtractor
         IProgress<string>? log = null,
         CancellationToken token = default)
     {
+        await ShipCatalogUpdater.Gate.WaitAsync(token).ConfigureAwait(false);
+        try
+        {
+            return await GenerateCoreAsync(gamePath, log, token).ConfigureAwait(false);
+        }
+        finally
+        {
+            ShipCatalogUpdater.Gate.Release();
+        }
+    }
+
+    private static async Task<ShipCatalogUpdateResult> GenerateCoreAsync(
+        string gamePath,
+        IProgress<string>? log,
+        CancellationToken token)
+    {
         if (string.IsNullOrWhiteSpace(gamePath) || !Directory.Exists(gamePath))
         {
             return ShipCatalogUpdateResult.Fail("未找到游戏目录，请先在设置里填写游戏路径");
@@ -66,13 +82,16 @@ public static class ShipDataExtractor
                 return ShipCatalogUpdateResult.Fail("未能从游戏数据中解析出舰船");
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(ShipCatalog.UserCatalogPath)!);
-            await File.WriteAllTextAsync(ShipCatalog.UserCatalogPath, json, token);
+            AtomicFile.WriteAllText(ShipCatalog.UserCatalogPath, json);
             ShipCatalog.Current.Reload();
 
             try
             {
                 File.Delete(gameParamsPath);
+                if (Directory.Exists(tempDir) && !Directory.EnumerateFileSystemEntries(tempDir).Any())
+                {
+                    Directory.Delete(tempDir);
+                }
             }
             catch
             {
@@ -136,8 +155,8 @@ public static class ShipDataExtractor
             FileName = exe,
             UseShellExecute = false,
             CreateNoWindow = true,
-            RedirectStandardOutput = true,
-            RedirectStandardError = true,
+            RedirectStandardOutput = false,
+            RedirectStandardError = false,
         };
         startInfo.ArgumentList.Add("-g");
         startInfo.ArgumentList.Add(gamePath);
@@ -167,17 +186,7 @@ public static class ShipDataExtractor
     /// <summary>在 &lt;game&gt;\bin\&lt;build&gt;\res\texts\&lt;lang&gt;\LC_MESSAGES\global.mo 中查找语言文件。</summary>
     public static string? FindGlobalMo(string gamePath, params string[] languages)
     {
-        string binDir = Path.Combine(gamePath, "bin");
-        if (!Directory.Exists(binDir))
-        {
-            return null;
-        }
-
-        IEnumerable<string> builds = Directory.GetDirectories(binDir)
-            .OrderByDescending(d => Path.GetFileName(d).Length)
-            .ThenByDescending(d => Path.GetFileName(d));
-
-        foreach (string build in builds)
+        foreach (string build in BuildDirectories(gamePath))
         {
             foreach (string lang in languages)
             {
@@ -193,14 +202,24 @@ public static class ShipDataExtractor
     }
 
     /// <summary>用游戏最新构建号作为版本标识。</summary>
+    private static IEnumerable<string> BuildDirectories(string gamePath)
+    {
+        string binDir = Path.Combine(gamePath, "bin");
+        if (!Directory.Exists(binDir))
+        {
+            return Enumerable.Empty<string>();
+        }
+
+        return Directory.GetDirectories(binDir)
+            .Where(d => long.TryParse(Path.GetFileName(d), NumberStyles.None, CultureInfo.InvariantCulture, out _))
+            .OrderByDescending(d => long.Parse(Path.GetFileName(d), CultureInfo.InvariantCulture));
+    }
+
     private static string ReadGameVersion(string gamePath)
     {
         try
         {
-            string? build = Directory.GetDirectories(Path.Combine(gamePath, "bin"))
-                .OrderByDescending(d => Path.GetFileName(d).Length)
-                .ThenByDescending(d => Path.GetFileName(d))
-                .FirstOrDefault();
+            string? build = BuildDirectories(gamePath).FirstOrDefault();
             return build is null ? "local" : Path.GetFileName(build);
         }
         catch

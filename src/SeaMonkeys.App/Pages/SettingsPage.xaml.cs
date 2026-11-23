@@ -7,6 +7,7 @@ namespace SeaMonkeys.App.Pages;
 public sealed partial class SettingsPage : Page
 {
     private bool syncing;
+    private bool catalogBusy;
 
     public SettingsPage()
     {
@@ -59,17 +60,38 @@ public sealed partial class SettingsPage : Page
             return;
         }
 
+        if (catalogBusy)
+        {
+            return;
+        }
+
+        catalogBusy = true;
         CatalogUpdateButton.IsEnabled = false;
+        CatalogGenerateButton.IsEnabled = false;
         CatalogStatusText.Text = "正在更新…";
 
-        ShipCatalogUpdateResult result = await ShipCatalogUpdater.TryUpdateAsync(url);
+        ShipCatalogUpdateResult result;
+        try
+        {
+            result = await ShipCatalogUpdater.TryUpdateAsync(url);
+        }
+        finally
+        {
+            catalogBusy = false;
+            CatalogUpdateButton.IsEnabled = true;
+            CatalogGenerateButton.IsEnabled = true;
+        }
 
-        CatalogUpdateButton.IsEnabled = true;
         ShowCatalogResult(result);
     }
 
     private async void GenerateCatalog_Click(object sender, RoutedEventArgs e)
     {
+        if (catalogBusy)
+        {
+            return;
+        }
+
         string gamePath = GamePathBox.Text;
         if (string.IsNullOrWhiteSpace(gamePath) || !Directory.Exists(gamePath))
         {
@@ -87,13 +109,24 @@ public sealed partial class SettingsPage : Page
             AppSettings.Current.Save();
         }
 
+        catalogBusy = true;
+        CatalogUpdateButton.IsEnabled = false;
         CatalogGenerateButton.IsEnabled = false;
         CatalogStatusText.Text = "正在从游戏生成…";
 
         var log = new Progress<string>(t => CatalogStatusText.Text = t);
-        ShipCatalogUpdateResult result = await ShipDataExtractor.GenerateAsync(gamePath, log);
+        ShipCatalogUpdateResult result;
+        try
+        {
+            result = await ShipDataExtractor.GenerateAsync(gamePath, log);
+        }
+        finally
+        {
+            catalogBusy = false;
+            CatalogUpdateButton.IsEnabled = true;
+            CatalogGenerateButton.IsEnabled = true;
+        }
 
-        CatalogGenerateButton.IsEnabled = true;
         ShowCatalogResult(result);
     }
 
@@ -118,7 +151,13 @@ public sealed partial class SettingsPage : Page
     private void GamePath_Changed(object sender, TextChangedEventArgs e)
     {
         if (syncing) return;
-        AppSettings.Current.GamePath = GamePathBox.Text;
+        string path = GamePathBox.Text;
+        if (path.Length > 0 && !Directory.Exists(path))
+        {
+            return;
+        }
+
+        AppSettings.Current.GamePath = path;
         AppSettings.Current.Save();
         BattleState.Current.RestartObservation();
     }
@@ -219,6 +258,7 @@ public sealed partial class SettingsPage : Page
         if (syncing) return;
         AppSettings.Current.SortMode = SortBox.SelectedIndex;
         AppSettings.Current.Save();
+        BattleState.Current.RefreshRows();
     }
 
     private void Highlight_Toggled(object sender, RoutedEventArgs e)
@@ -226,6 +266,7 @@ public sealed partial class SettingsPage : Page
         if (syncing) return;
         AppSettings.Current.HighlightWatchlist = HighlightSwitch.IsOn;
         AppSettings.Current.Save();
+        BattleState.Current.RefreshRows();
     }
 
     private void Accelerator_Changed(object sender, TextChangedEventArgs e)

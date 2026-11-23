@@ -43,6 +43,13 @@ public static class ShipCatalogBuilder
         uint origTable = ReadUInt(12);
         uint transTable = ReadUInt(16);
 
+        if (count > data.Length / 8 ||
+            (long)origTable + (long)count * 8 > data.Length ||
+            (long)transTable + (long)count * 8 > data.Length)
+        {
+            return result;
+        }
+
         for (uint i = 0; i < count; i++)
         {
             uint origLen = ReadUInt((int)(origTable + i * 8));
@@ -50,7 +57,7 @@ public static class ShipCatalogBuilder
             uint transLen = ReadUInt((int)(transTable + i * 8));
             uint transOff = ReadUInt((int)(transTable + i * 8 + 4));
 
-            if (origOff + origLen > data.Length || transOff + transLen > data.Length)
+            if ((long)origOff + origLen > data.Length || (long)transOff + transLen > data.Length)
             {
                 continue;
             }

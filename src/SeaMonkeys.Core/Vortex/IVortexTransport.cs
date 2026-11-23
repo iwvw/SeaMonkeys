@@ -18,7 +18,9 @@ public sealed class HttpVortexTransport : IVortexTransport, IDisposable
     private readonly HttpClient http;
     private readonly bool ownsClient;
     private readonly SemaphoreSlim gate;
+    private readonly SemaphoreSlim sendLock = new(1, 1);
     private readonly int delayMs;
+    private DateTimeOffset lastSendAt = DateTimeOffset.MinValue;
 
     public HttpVortexTransport(SeaMonkeysSettings settings, HttpClient? client = null)
     {
@@ -46,24 +48,29 @@ public sealed class HttpVortexTransport : IVortexTransport, IDisposable
     /// <summary>请求级全局并发门限：所有端点共用，避免玩家级并发叠加后打爆上游。</summary>
     private async Task<HttpResponseMessage> SendAsync(string url, CancellationToken cancellationToken)
     {
+        if (delayMs > 0)
+        {
+            await sendLock.WaitAsync(cancellationToken);
+            try
+            {
+                TimeSpan wait = TimeSpan.FromMilliseconds(delayMs) - (DateTimeOffset.UtcNow - lastSendAt);
+                if (wait > TimeSpan.Zero)
+                {
+                    await Task.Delay(wait, cancellationToken);
+                }
+
+                lastSendAt = DateTimeOffset.UtcNow;
+            }
+            finally
+            {
+                sendLock.Release();
+            }
+        }
+
         await gate.WaitAsync(cancellationToken);
         try
         {
-            HttpResponseMessage response = await http.GetAsync(url, HttpCompletionOption.ResponseContentRead, cancellationToken);
-            try
-            {
-                if (delayMs > 0)
-                {
-                    await Task.Delay(delayMs, cancellationToken);
-                }
-            }
-            catch
-            {
-                response.Dispose();
-                throw;
-            }
-
-            return response;
+            return await http.GetAsync(url, HttpCompletionOption.ResponseContentRead, cancellationToken);
         }
         finally
         {
@@ -142,5 +149,6 @@ public sealed class HttpVortexTransport : IVortexTransport, IDisposable
         }
 
         gate.Dispose();
+        sendLock.Dispose();
     }
 }

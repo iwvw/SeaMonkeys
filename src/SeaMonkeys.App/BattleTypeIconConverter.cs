@@ -19,14 +19,29 @@ public sealed class BattleTypeIconConverter : IValueConverter
         ["TrainingBattle"] = "battle_type_training.png",
     };
 
+    private static readonly Dictionary<string, string> MatchGroups = new(StringComparer.OrdinalIgnoreCase)
+    {
+        ["pvp"] = "battle_type_standart.png",
+        ["ranked"] = "battle_type_rank.png",
+        ["clan"] = "battle_type_clan.png",
+        ["coop"] = "battle_type_pve.png",
+        ["pve"] = "battle_type_pve.png",
+        ["scenario"] = "battle_type_scenario.png",
+    };
+
     private static readonly Dictionary<string, ImageSource> Cache = new();
 
     public object? Convert(object value, Type targetType, object parameter, string language)
     {
         string key = value as string ?? string.Empty;
-        if (!Files.TryGetValue(key, out string? file))
+        if (string.IsNullOrEmpty(key))
         {
-            file = "battle_type_standart.png";
+            return null;
+        }
+
+        if (!Files.TryGetValue(key, out string? file) && !MatchGroups.TryGetValue(key, out file))
+        {
+            return null;
         }
 
         if (Cache.TryGetValue(file, out ImageSource? cached))

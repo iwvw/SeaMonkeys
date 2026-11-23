@@ -70,6 +70,10 @@
             <TitleBar.RightHeader>
                 <StackPanel Orientation="Horizontal" Spacing="12"
                             Margin="0,0,12,0" VerticalAlignment="Center">
+                    <TextBlock x:Name="NoticeText" VerticalAlignment="Center"
+                               FontSize="12" MaxWidth="380"
+                               TextTrimming="CharacterEllipsis"
+                               Visibility="Collapsed" />
                     <ProgressRing x:Name="FetchRing" Width="18" Height="18" VerticalAlignment="Center"
                                   IsActive="{Binding IsBusy}"
                                   Visibility="{Binding IsBusy, Converter={StaticResource BoolToVisibility}}" />

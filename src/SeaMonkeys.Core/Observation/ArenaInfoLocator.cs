@@ -7,6 +7,7 @@ namespace SeaMonkeys.Core.Observation;
 public sealed class ArenaInfoLocator
 {
     private DateTimeOffset lastWriteTime = DateTimeOffset.MinValue;
+    private DateTimeOffset previousWriteTime = DateTimeOffset.MinValue;
 
     /// <summary>
     /// 返回最新的 tempArenaInfo.json 路径。
@@ -22,7 +23,6 @@ public sealed class ArenaInfoLocator
         string replayDirectory = Path.Combine(gamePath, "replays");
         if (!Directory.Exists(replayDirectory))
         {
-            lastWriteTime = DateTimeOffset.MinValue;
             return string.Empty;
         }
 
@@ -39,7 +39,6 @@ public sealed class ArenaInfoLocator
 
         if (candidates.Length == 0)
         {
-            lastWriteTime = DateTimeOffset.MinValue;
             return string.Empty;
         }
 
@@ -51,11 +50,22 @@ public sealed class ArenaInfoLocator
 
         DateTimeOffset latestWriteTime = new FileInfo(latest).LastWriteTime;
         bool isNewer = latestWriteTime > lastWriteTime;
-        lastWriteTime = latestWriteTime;
+        if (isNewer)
+        {
+            previousWriteTime = lastWriteTime;
+            lastWriteTime = latestWriteTime;
+        }
 
         return isNewer || !requireNewer ? latest : string.Empty;
     }
 
+    /// <summary>瞬时失败时回退上次推进,使同一文件在下次轮询仍可重试。</summary>
+    public void RollbackLast() => lastWriteTime = previousWriteTime;
+
     /// <summary>重置记录，使下一次查询无视时间戳。</summary>
-    public void Reset() => lastWriteTime = DateTimeOffset.MinValue;
+    public void Reset()
+    {
+        lastWriteTime = DateTimeOffset.MinValue;
+        previousWriteTime = DateTimeOffset.MinValue;
+    }
 }

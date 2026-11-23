@@ -1,6 +1,6 @@
 {
-  "version": "13357625",
-  "date": "20261029",
+  "version": "13533378",
+  "date": "20261104",
   "ships": {
     "4292851696": {
       "name_en-us": "Bogue (old)",
@@ -1339,13 +1339,6 @@
       "tier": 5,
       "type": "Auxiliary"
     },
-    "4290000880": {
-      "name_en-us": "Atlas Node",
-      "name_zh-cn": "Atlas Node",
-      "nation": "usa",
-      "tier": 5,
-      "type": "Auxiliary"
-    },
     "4288952304": {
       "name_en-us": "St. Clair",
       "name_zh-cn": "St. Clair",
@@ -2480,6 +2473,41 @@
       "tier": 0,
       "type": "Event"
     },
+    "4238191536": {
+      "name_en-us": "Vanished Expedition",
+      "name_zh-cn": "\u63A2\u9669\u8FF7\u8E2A",
+      "nation": "common",
+      "tier": 0,
+      "type": "Event"
+    },
+    "4237142960": {
+      "name_en-us": "Madness Crusade",
+      "name_zh-cn": "\u963B\u622A\u72C2\u6F6E",
+      "nation": "common",
+      "tier": 0,
+      "type": "Event"
+    },
+    "4236094384": {
+      "name_en-us": "Origin of\u00A0Terror",
+      "name_zh-cn": "\u6050\u6016\u4E4B\u6E90",
+      "nation": "common",
+      "tier": 0,
+      "type": "Event"
+    },
+    "4235045808": {
+      "name_en-us": "Harbingers of\u00A0Doom",
+      "name_zh-cn": "\u672B\u65E5\u51F6\u5146",
+      "nation": "common",
+      "tier": 0,
+      "type": "Event"
+    },
+    "4233997232": {
+      "name_en-us": "Horror From\u00A0the\u00A0Abyss",
+      "name_zh-cn": "\u6765\u81EA\u6DF1\u6E0A\u7684\u6050\u6016",
+      "nation": "common",
+      "tier": 0,
+      "type": "Event"
+    },
     "4261981104": {
       "name_en-us": "Last Voyage of Transylvania",
       "name_zh-cn": "\u7279\u5170\u897F\u74E6\u5C3C\u4E9A\u7684\u6700\u7EC8\u822A\u884C",
@@ -3087,6 +3115,13 @@
       "name_zh-cn": "M.\u91CC\u5E0C\u7279\u970D\u82AC",
       "nation": "germany",
       "tier": 10,
+      "type": "AirCarrier"
+    },
+    "4178556720": {
+      "name_en-us": "Oswald Boelcke",
+      "name_zh-cn": "\u5965\u65AF\u74E6\u5C14\u5FB7\u00B7\u4F2F\u5C14\u514B",
+      "nation": "germany",
+      "tier": 11,
       "type": "AirCarrier"
     },
     "3764369200": {
@@ -4040,6 +4075,41 @@
       "nation": "germany",
       "tier": 10,
       "type": "Submarine"
+    },
+    "4284430096": {
+      "name_en-us": "Neptunus",
+      "name_zh-cn": "\u6D77\u795E",
+      "nation": "netherlands",
+      "tier": 10,
+      "type": "Battleship"
+    },
+    "4278138640": {
+      "name_en-us": "Grote Geus",
+      "name_zh-cn": "\u5927\u4E5E\u4E10",
+      "nation": "netherlands",
+      "tier": 6,
+      "type": "Battleship"
+    },
+    "4277090064": {
+      "name_en-us": "Graaf van Egmont",
+      "name_zh-cn": "\u57C3\u683C\u8499\u7279\u4F2F\u7235",
+      "nation": "netherlands",
+      "tier": 7,
+      "type": "Battleship"
+    },
+    "4276041488": {
+      "name_en-us": "Prins Maurits",
+      "name_zh-cn": "\u6BDB\u91CC\u8328\u4EB2\u738B",
+      "nation": "netherlands",
+      "tier": 8,
+      "type": "Battleship"
+    },
+    "4274992912": {
+      "name_en-us": "Eenhoorn",
+      "name_zh-cn": "\u72EC\u89D2\u517D",
+      "nation": "netherlands",
+      "tier": 9,
+      "type": "Battleship"
     },
     "3550426896": {
       "name_en-us": "Willem de Eerste",
@@ -6869,6 +6939,13 @@
       "tier": 10,
       "type": "Destroyer"
     },
+    "3540923824": {
+      "name_en-us": "Halc\u00F3n",
+      "name_zh-cn": "\u730E\u9E70",
+      "nation": "spain",
+      "tier": 9,
+      "type": "Destroyer"
+    },
     "3763287408": {
       "name_en-us": "Yukon",
       "name_zh-cn": "\u80B2\u7A7A",
@@ -7842,6 +7919,27 @@
       "tier": 10,
       "type": "Battleship"
     },
+    "4273943824": {
+      "name_en-us": "Oblivion",
+      "name_zh-cn": "Oblivion",
+      "nation": "events",
+      "tier": 11,
+      "type": "Battleship"
+    },
+    "4272895248": {
+      "name_en-us": "Obsession",
+      "name_zh-cn": "Obsession",
+      "nation": "events",
+      "tier": 10,
+      "type": "Battleship"
+    },
+    "4270798096": {
+      "name_en-us": "Wrath",
+      "name_zh-cn": "Wrath",
+      "nation": "events",
+      "tier": 10,
+      "type": "Battleship"
+    },
     "4266603792": {
       "name_en-us": "T\u0027PAU",
       "name_zh-cn": "T\u0027PAU",
@@ -8003,6 +8101,13 @@
       "tier": 10,
       "type": "Cruiser"
     },
+    "4271813904": {
+      "name_en-us": "Compulsion",
+      "name_zh-cn": "Compulsion",
+      "nation": "events",
+      "tier": 10,
+      "type": "Cruiser"
+    },
     "4266571024": {
       "name_en-us": "TOQDUJ",
       "name_zh-cn": "TOQDUJ",
@@ -8092,6 +8197,13 @@
       "name_zh-cn": "\u6218\u8230",
       "nation": "events",
       "tier": 1,
+      "type": "Cruiser"
+    },
+    "3247355152": {
+      "name_en-us": "Expeditioner",
+      "name_zh-cn": "\u8FDC\u5F81\u8005",
+      "nation": "events",
+      "tier": 11,
       "type": "Cruiser"
     },
     "4293801232": {
@@ -8262,6 +8374,13 @@
       "tier": 10,
       "type": "Destroyer"
     },
+    "4267586832": {
+      "name_en-us": "Fever",
+      "name_zh-cn": "Fever",
+      "nation": "events",
+      "tier": 10,
+      "type": "Destroyer"
+    },
     "4266538256": {
       "name_en-us": "D\u0027DERIDEX",
       "name_zh-cn": "D\u0027DERIDEX",
@@ -8279,6 +8398,13 @@
     "4261295376": {
       "name_en-us": "Disruptor-3",
       "name_zh-cn": "Disruptor-3",
+      "nation": "events",
+      "tier": 10,
+      "type": "Destroyer"
+    },
+    "4256052496": {
+      "name_en-us": "Premonition",
+      "name_zh-cn": "Premonition",
       "nation": "events",
       "tier": 10,
       "type": "Destroyer"
@@ -8377,6 +8503,13 @@
     "4293145872": {
       "name_en-us": "Transylvania",
       "name_zh-cn": "\u7279\u5170\u897F\u74E6\u5C3C\u4E9A",
+      "nation": "events",
+      "tier": 5,
+      "type": "Auxiliary"
+    },
+    "4290000144": {
+      "name_en-us": "Atlas",
+      "name_zh-cn": "Atlas",
       "nation": "events",
       "tier": 5,
       "type": "Auxiliary"
@@ -8577,6 +8710,13 @@
       "tier": 9,
       "type": "Battleship"
     },
+    "3550426320": {
+      "name_en-us": "Jiuhua",
+      "name_zh-cn": "\u4E5D\u534E",
+      "nation": "pan_asia",
+      "tier": 10,
+      "type": "Battleship"
+    },
     "3540989136": {
       "name_en-us": "Yimeng",
       "name_zh-cn": "\u6C82\u8499",
@@ -8750,6 +8890,13 @@
       "name_zh-cn": "AL\u54C8\u5C14\u6EE8",
       "nation": "pan_asia",
       "tier": 8,
+      "type": "Cruiser"
+    },
+    "3331241168": {
+      "name_en-us": "Chao Heng",
+      "name_zh-cn": "\u6641\u8861",
+      "nation": "pan_asia",
+      "tier": 9,
       "type": "Cruiser"
     },
     "4187894992": {

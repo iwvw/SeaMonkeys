@@ -5,7 +5,7 @@
 .DESCRIPTION
   对比游戏 bin/ 下最新构建号与现有 ships.json 的 version 字段：
   - 一致：直接退出，不做任何生成与上传。
-  - 不一致：调用 build/update-ships.ps1 重新生成并同步到 momomi.dmuk.org。
+  - 不一致：调用 build/update-ships.ps1 重新生成并同步到自建代理。
 
   供 Windows 计划任务调用，日志写入 %LOCALAPPDATA%\SeaMonkeys\logs\。
 

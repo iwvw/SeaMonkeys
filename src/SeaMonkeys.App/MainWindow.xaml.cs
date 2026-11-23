@@ -14,7 +14,7 @@ public sealed partial class MainWindow : Window
     private const double MinimumWidthDip = 1400;
     private const double MinimumHeightDip = 960;
 
-    private double lastMinimumScale = -1;
+    private (double Scale, int Width, int Height) lastMinimum = (-1, -1, -1);
 
     public MainWindow()
     {
@@ -68,6 +68,43 @@ public sealed partial class MainWindow : Window
 
         _ = UpdateShipCatalogAsync();
         _ = CheckForUpdatesAsync();
+
+        NotificationService.Notified += OnNotified;
+    }
+
+    private Microsoft.UI.Dispatching.DispatcherQueueTimer? noticeTimer;
+
+    private void OnNotified(string message, NoticeKind kind)
+    {
+        if (!DispatcherQueue.HasThreadAccess)
+        {
+            DispatcherQueue.TryEnqueue(() => OnNotified(message, kind));
+            return;
+        }
+
+        NoticeText.Text = message;
+        NoticeText.Foreground = kind switch
+        {
+            NoticeKind.Error => (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCriticalBrush"],
+            NoticeKind.Warning => (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorCautionBrush"],
+            NoticeKind.Success => (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["SystemFillColorSuccessBrush"],
+            _ => (Microsoft.UI.Xaml.Media.Brush)Application.Current.Resources["TextFillColorSecondaryBrush"],
+        };
+        NoticeText.Visibility = Visibility.Visible;
+
+        noticeTimer ??= DispatcherQueue.CreateTimer();
+        noticeTimer.Stop();
+        noticeTimer.Interval = TimeSpan.FromSeconds(6);
+        noticeTimer.IsRepeating = false;
+        noticeTimer.Tick -= OnNoticeExpired;
+        noticeTimer.Tick += OnNoticeExpired;
+        noticeTimer.Start();
+    }
+
+    private void OnNoticeExpired(Microsoft.UI.Dispatching.DispatcherQueueTimer sender, object args)
+    {
+        sender.Stop();
+        NoticeText.Visibility = Visibility.Collapsed;
     }
 
     private UpdateInfo pendingUpdate;
@@ -181,15 +218,17 @@ public sealed partial class MainWindow : Window
         }
 
         double scale = RootGrid.XamlRoot?.RasterizationScale ?? 1.0;
-        if (Math.Abs(scale - lastMinimumScale) < 0.001)
+        DisplayArea area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);
+        Windows.Graphics.RectInt32 work = area.WorkArea;
+
+        if (Math.Abs(scale - lastMinimum.Scale) < 0.001 &&
+            work.Width == lastMinimum.Width &&
+            work.Height == lastMinimum.Height)
         {
             return;
         }
 
-        lastMinimumScale = scale;
-
-        DisplayArea area = DisplayArea.GetFromWindowId(AppWindow.Id, DisplayAreaFallback.Primary);
-        Windows.Graphics.RectInt32 work = area.WorkArea;
+        lastMinimum = (scale, work.Width, work.Height);
 
         presenter.PreferredMinimumWidth = Math.Min((int)Math.Ceiling(MinimumWidthDip * scale), work.Width);
         presenter.PreferredMinimumHeight = Math.Min((int)Math.Ceiling(MinimumHeightDip * scale), work.Height);

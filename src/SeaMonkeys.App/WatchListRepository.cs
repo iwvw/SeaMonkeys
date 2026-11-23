@@ -5,21 +5,23 @@ namespace SeaMonkeys.App;
 
 public enum WatchStatus
 {
-    None,
-    Positive,
-    Negtive,
-    Cheater,
+    None = 0,
+    Positive = 1,
+    Negtive = 2,
+    Cheater = 3,
 }
 
 /// <summary>按服务器持久化的观察名单（JSON）。历史拼写 Negtive 为兼容契约。</summary>
 public sealed class WatchListRepository
 {
-    public static WatchListRepository Current { get; } = new();
-
+    // 注意:静态字段按声明顺序初始化,FilePath 必须先于 Current,
+    // 否则 Current 构造时 FilePath 为 null,启动时不会加载用户观察名单。
     private static readonly string FilePath = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
         "SeaMonkeys",
         "WatchList.json");
+
+    public static WatchListRepository Current { get; } = new();
 
     // serverCode -> (accountId -> status)
     private Dictionary<string, Dictionary<string, WatchStatus>> data = new();
@@ -39,6 +41,7 @@ public sealed class WatchListRepository
         }
         catch
         {
+            AtomicFile.Backup(FilePath);
             data = new();
         }
     }
@@ -47,8 +50,7 @@ public sealed class WatchListRepository
     {
         try
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(FilePath)!);
-            File.WriteAllText(FilePath, JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true }));
+            AtomicFile.WriteAllText(FilePath, JsonSerializer.Serialize(data, new JsonSerializerOptions { WriteIndented = true }));
         }
         catch
         {
@@ -57,7 +59,7 @@ public sealed class WatchListRepository
 
     public WatchStatus Get(Server server, string? accountId)
     {
-        if (string.IsNullOrEmpty(accountId))
+        if (string.IsNullOrEmpty(accountId) || server == Server.Auto)
         {
             return WatchStatus.None;
         }
@@ -70,19 +72,27 @@ public sealed class WatchListRepository
 
     public void Set(Server server, string accountId, WatchStatus status)
     {
-        string key = server.ToCode();
-        if (!data.TryGetValue(key, out var map))
+        if (string.IsNullOrEmpty(accountId) || server == Server.Auto)
         {
-            map = new();
-            data[key] = map;
+            return;
         }
 
         if (status == WatchStatus.None)
         {
-            map.Remove(accountId);
+            if (data.TryGetValue(server.ToCode(), out var existing))
+            {
+                existing.Remove(accountId);
+            }
         }
         else
         {
+            string key = server.ToCode();
+            if (!data.TryGetValue(key, out var map))
+            {
+                map = new();
+                data[key] = map;
+            }
+
             map[accountId] = status;
         }
 

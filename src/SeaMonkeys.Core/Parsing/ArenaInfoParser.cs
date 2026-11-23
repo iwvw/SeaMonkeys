@@ -171,7 +171,7 @@ public sealed class ArenaInfoParser
     /// </summary>
     private static Battle ParseLesta(byte[] bytes, string headerJson, int blockStart, string sourceFile)
     {
-        using JsonDocument headerDoc = JsonDocument.Parse(headerJson);
+        using JsonDocument headerDoc = ParseDocument(headerJson);
         using JsonDocument blockDoc = ParseJsonObject(bytes, blockStart);
 
         JsonElement root = headerDoc.RootElement;
@@ -199,10 +199,10 @@ public sealed class ArenaInfoParser
 
                 JsonElement arr = item.Value;
                 // [0]=账号ID, [1]=昵称, [3]=公会tag, [6]=队伍(0/1), [7]=船ID
-                long accountId = arr.GetArrayLength() > 0 ? arr[0].GetInt64() : 0;
+                long accountId = GetArrayLong(arr, 0);
                 string name = arr.GetArrayLength() > 1 ? (arr[1].ValueKind == JsonValueKind.String ? arr[1].GetString() ?? string.Empty : string.Empty) : string.Empty;
                 string clan = arr.GetArrayLength() > 3 && arr[3].ValueKind == JsonValueKind.String ? arr[3].GetString() ?? string.Empty : string.Empty;
-                long team = arr.GetArrayLength() > 6 ? arr[6].GetInt64() : 0;
+                long team = GetArrayLong(arr, 6);
                 string ownVehicle = GetString(root, "playerName");
                 long ownTeam = GetOwnTeam(block, ownVehicle);
 
@@ -215,7 +215,7 @@ public sealed class ArenaInfoParser
                 // WOWS relation: 0=self, 1=ally, 2=enemy。
                 // 这里以「自己所在队伍」为参照：同队为友军，异队为敌军。
                 Relation relation = team == ownTeam ? Relation.Ally : Relation.Enemy;
-                if (name == ownVehicle)
+                if (string.Equals(name, ownVehicle, StringComparison.OrdinalIgnoreCase))
                 {
                     relation = Relation.Self;
                 }
@@ -224,7 +224,7 @@ public sealed class ArenaInfoParser
                 {
                     Name = name,
                     Relation = relation,
-                    ShipId = arr.GetArrayLength() > 7 ? arr[7].GetInt64().ToString(CultureInfo.InvariantCulture) : string.Empty,
+                    ShipId = arr.GetArrayLength() > 7 ? GetArrayLong(arr, 7).ToString(CultureInfo.InvariantCulture) : string.Empty,
                     RawId = accountId,
                     AccountId = accountId.ToString(CultureInfo.InvariantCulture),
                     Server = Server.Ru,
@@ -262,9 +262,9 @@ public sealed class ArenaInfoParser
                 }
 
                 string name = item.Value[1].ValueKind == JsonValueKind.String ? item.Value[1].GetString() ?? string.Empty : string.Empty;
-                if (name == ownName && item.Value.GetArrayLength() > 6)
+                if (string.Equals(name, ownName, StringComparison.OrdinalIgnoreCase) && item.Value.GetArrayLength() > 6)
                 {
-                    return item.Value[6].GetInt64();
+                    return GetArrayLong(item.Value, 6);
                 }
             }
         }
@@ -273,6 +273,18 @@ public sealed class ArenaInfoParser
     }
 
     /// <summary>从指定偏移解析出一个完整 JSON 对象。</summary>
+    private static JsonDocument ParseDocument(string json)
+    {
+        try
+        {
+            return JsonDocument.Parse(json);
+        }
+        catch (JsonException ex)
+        {
+            throw new BattleParseException("FileFormatIncorrect", ex);
+        }
+    }
+
     private static JsonDocument ParseJsonObject(byte[] bytes, int start)
     {
         int depth = 0;
@@ -312,7 +324,7 @@ public sealed class ArenaInfoParser
                     if (depth == 0)
                     {
                         string json = Encoding.UTF8.GetString(bytes, start, i - start + 1);
-                        return JsonDocument.Parse(json);
+                        return ParseDocument(json);
                     }
                 }
             }
@@ -371,7 +383,23 @@ public sealed class ArenaInfoParser
         return value.ValueKind switch
         {
             JsonValueKind.Number => value.TryGetInt64(out long l) ? l : (long)value.GetDouble(),
-            JsonValueKind.String => long.TryParse(value.GetString(), out long l) ? l : 0,
+            JsonValueKind.String => long.TryParse(value.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out long l) ? l : 0,
+            _ => 0,
+        };
+    }
+
+    private static long GetArrayLong(JsonElement array, int index)
+    {
+        if (array.ValueKind != JsonValueKind.Array || array.GetArrayLength() <= index)
+        {
+            return 0;
+        }
+
+        JsonElement value = array[index];
+        return value.ValueKind switch
+        {
+            JsonValueKind.Number => value.TryGetInt64(out long l) ? l : (long)value.GetDouble(),
+            JsonValueKind.String => long.TryParse(value.GetString(), NumberStyles.Integer, CultureInfo.InvariantCulture, out long l) ? l : 0,
             _ => 0,
         };
     }

@@ -23,8 +23,6 @@ public static class ThemeManager
         root = rootElement;
         dispatcher = dispatcherQueue;
 
-        root.ActualThemeChanged += (_, _) => ThemeChanged?.Invoke(null, EventArgs.Empty);
-
         Apply();
 
         try
@@ -46,9 +44,13 @@ public static class ThemeManager
         }
 
         bool dark = IsSystemDark();
+        bool changed = dark != IsDark;
         IsDark = dark;
         root.RequestedTheme = dark ? ElementTheme.Dark : ElementTheme.Light;
-        ThemeChanged?.Invoke(null, EventArgs.Empty);
+        if (changed)
+        {
+            ThemeChanged?.Invoke(null, EventArgs.Empty);
+        }
     }
 
     private static bool IsSystemDark()

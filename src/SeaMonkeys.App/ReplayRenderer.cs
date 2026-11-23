@@ -195,13 +195,7 @@ public static class ReplayRenderer
         {
             if (directory.Name.Equals("replays", StringComparison.OrdinalIgnoreCase))
             {
-                string? root = directory.Parent?.FullName;
-                if (root is not null && File.Exists(Path.Combine(root, "WorldOfWarships.exe")))
-                {
-                    return root;
-                }
-
-                return root;
+                return directory.Parent?.FullName;
             }
 
             directory = directory.Parent;

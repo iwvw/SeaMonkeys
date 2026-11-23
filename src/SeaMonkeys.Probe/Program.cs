@@ -3,6 +3,7 @@ using System.Globalization;
 using SeaMonkeys.Core.Intake;
 using SeaMonkeys.Core.Models;
 using SeaMonkeys.Core.Parsing;
+using SeaMonkeys.Core.Servers;
 using SeaMonkeys.Core.Settings;
 using SeaMonkeys.Core.Ships;
 using SeaMonkeys.Core.Vortex;
@@ -16,9 +17,33 @@ internal static class Program
 
     private static async Task<int> Main(string[] args)
     {
-        if (args.Length >= 2 && args[0] == "shipgen")
+        try
         {
-            return await ShipGenAsync(args[1], args.Length >= 3 ? args[2] : null);
+            return await RunAsync(args);
+        }
+        catch (ServerResolutionException ex)
+        {
+            Console.Error.WriteLine($"server resolution failed: {ex.Message}");
+            return 3;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"error: {ex.Message}");
+            return 1;
+        }
+    }
+
+    private static async Task<int> RunAsync(string[] args)
+    {
+        if (args.Length >= 1 && args[0] == "shipgen")
+        {
+            if (args.Length < 2 || string.IsNullOrWhiteSpace(args[1]))
+            {
+                Console.Error.WriteLine("usage: shipgen <gamePath> [outJson] [unpackExe]");
+                return 1;
+            }
+
+            return await ShipGenAsync(args[1], args.Length >= 3 ? args[2] : null, args.Length >= 4 ? args[3] : null);
         }
 
         string replayPath = args.Length > 0 ? args[0] : DefaultReplay;
@@ -82,10 +107,11 @@ internal static class Program
     /// shipgen &lt;gamePath&gt; [outJson] [unpackExe]
     /// 用 wowsunpack 导出 GameParams，配合游戏本地化生成 ships.json。构建期刷新内置表用。
     /// </summary>
-    private static async Task<int> ShipGenAsync(string gamePath, string? outJson)
+    private static async Task<int> ShipGenAsync(string gamePath, string? outJson, string? unpackExe)
     {
         outJson ??= Path.Combine(AppContext.BaseDirectory, "ships.json");
-        string unpack = Environment.GetEnvironmentVariable("WOWSUNPACK")
+        string unpack = unpackExe
+            ?? Environment.GetEnvironmentVariable("WOWSUNPACK")
             ?? Path.Combine(AppContext.BaseDirectory, "wowsunpack.exe");
 
         Console.OutputEncoding = System.Text.Encoding.UTF8;
@@ -150,6 +176,12 @@ internal static class Program
             string version = ReadVersion(gamePath);
             string date = DateTime.Now.ToString("yyyyMMdd", CultureInfo.InvariantCulture);
             string json = ShipCatalogBuilder.Build(gameParams, zh, en, version, date);
+            string? outDir = Path.GetDirectoryName(outJson);
+            if (!string.IsNullOrEmpty(outDir))
+            {
+                Directory.CreateDirectory(outDir);
+            }
+
             File.WriteAllText(outJson, json);
 
             int count = 0;
@@ -178,9 +210,7 @@ internal static class Program
             return null;
         }
 
-        foreach (string build in Directory.GetDirectories(binDir)
-            .OrderByDescending(d => Path.GetFileName(d).Length)
-            .ThenByDescending(d => Path.GetFileName(d)))
+        foreach (string build in BuildDirectories(binDir))
         {
             foreach (string lang in languages)
             {
@@ -199,10 +229,7 @@ internal static class Program
     {
         try
         {
-            string? build = Directory.GetDirectories(Path.Combine(gamePath, "bin"))
-                .OrderByDescending(d => Path.GetFileName(d).Length)
-                .ThenByDescending(d => Path.GetFileName(d))
-                .FirstOrDefault();
+            string? build = BuildDirectories(Path.Combine(gamePath, "bin")).FirstOrDefault();
             return build is null ? "local" : Path.GetFileName(build);
         }
         catch
@@ -210,6 +237,11 @@ internal static class Program
             return "local";
         }
     }
+
+    private static IEnumerable<string> BuildDirectories(string binDir)
+        => Directory.GetDirectories(binDir)
+            .Where(d => long.TryParse(Path.GetFileName(d), NumberStyles.None, CultureInfo.InvariantCulture, out _))
+            .OrderByDescending(d => long.Parse(Path.GetFileName(d), CultureInfo.InvariantCulture));
 
     private static void PrintTeam(string title, IEnumerable<Participant> participants)
     {

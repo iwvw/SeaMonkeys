@@ -412,9 +412,14 @@ public sealed class PlayerCard : Grid
             var item = new MenuFlyoutItem { Text = text };
             item.Click += (_, _) =>
             {
-                var server = ParseServer(row);
-                WatchListRepository.Current.Set(server, row.AccountId, status);
-                NotificationService.Success($"{row.Name} 已标记为 {text}");
+                if (row.AccountId.Length == 0 || row.ServerCode.Length == 0)
+                {
+                    NotificationService.Warn($"{row.Name} 战绩未取到,无法加入观察名单");
+                    return;
+                }
+
+                WatchListRepository.Current.Set(ParseServer(row), row.AccountId, status);
+                NotificationService.Success($"{row.Name} {text}");
                 BattleState.Current.RefreshWatchHighlight();
             };
             flyout.Items.Add(item);
@@ -427,6 +432,12 @@ public sealed class PlayerCard : Grid
         var remove = new MenuFlyoutItem { Text = "移出观察名单" };
         remove.Click += (_, _) =>
         {
+            if (row.AccountId.Length == 0 || row.ServerCode.Length == 0)
+            {
+                NotificationService.Warn($"{row.Name} 战绩未取到,无法操作观察名单");
+                return;
+            }
+
             WatchListRepository.Current.Set(ParseServer(row), row.AccountId, WatchStatus.None);
             NotificationService.Info($"{row.Name} 已移出观察名单");
             BattleState.Current.RefreshWatchHighlight();
@@ -440,8 +451,8 @@ public sealed class PlayerCard : Grid
     private static void CopyPlayerStatistics(ParticipantRow row)
     {
         string clan = string.IsNullOrWhiteSpace(row.Clan) ? string.Empty : row.Clan + " ";
-        string accountBattles = row.IsAvailable ? row.BattlesValue.ToString("0") : "-";
-        string accountWinrate = row.IsAvailable ? row.WinrateValue.ToString("P1") : "-";
+        string accountBattles = row.IsAvailable ? row.BattlesValue.ToString("0", System.Globalization.CultureInfo.InvariantCulture) : "-";
+        string accountWinrate = row.IsAvailable ? row.WinrateValue.ToString("P1", System.Globalization.CultureInfo.InvariantCulture) : "-";
 
         // ShipRate 形如「25场 · 66336」，ShipWinrate 形如「胜率 52.0%」；无数据时为「-」。
         string shipBattles = "-";

@@ -18,7 +18,22 @@ public readonly record struct ShipCatalogUpdateResult(bool Success, string Messa
 
 public static class ShipCatalogUpdater
 {
+    internal static readonly SemaphoreSlim Gate = new(1, 1);
+
     public static async Task<ShipCatalogUpdateResult> TryUpdateAsync(string? url)
+    {
+        await Gate.WaitAsync();
+        try
+        {
+            return await TryUpdateCoreAsync(url);
+        }
+        finally
+        {
+            Gate.Release();
+        }
+    }
+
+    private static async Task<ShipCatalogUpdateResult> TryUpdateCoreAsync(string? url)
     {
         if (string.IsNullOrWhiteSpace(url))
         {
@@ -74,8 +89,7 @@ public static class ShipCatalogUpdater
             }
 
             string before = $"{ShipCatalog.Current.Version} ({ShipCatalog.Current.Date})";
-            Directory.CreateDirectory(Path.GetDirectoryName(ShipCatalog.UserCatalogPath)!);
-            await File.WriteAllTextAsync(ShipCatalog.UserCatalogPath, json);
+            AtomicFile.WriteAllText(ShipCatalog.UserCatalogPath, json);
             ShipCatalog.Current.Reload();
 
             string after = $"{ShipCatalog.Current.Version} ({ShipCatalog.Current.Date})";
@@ -94,7 +108,9 @@ public static class ShipCatalogUpdater
         {
             using var doc = JsonDocument.Parse(json);
             return doc.RootElement.ValueKind == JsonValueKind.Object
-                && doc.RootElement.TryGetProperty("ships", out _);
+                && doc.RootElement.TryGetProperty("ships", out JsonElement ships)
+                && ships.ValueKind == JsonValueKind.Object
+                && ships.EnumerateObject().Any();
         }
         catch
         {
@@ -120,9 +136,16 @@ public static class ShipCatalogUpdater
         return null;
     }
 
+    private const long MaxCatalogZipBytes = 64L * 1024 * 1024;
+
     private static async Task<string> DownloadCatalogFromZipAsync(HttpClient http, string zipUrl)
     {
         byte[] bytes = await http.GetByteArrayAsync(zipUrl);
+        if (bytes.LongLength > MaxCatalogZipBytes)
+        {
+            throw new InvalidDataException($"船名表压缩包过大({bytes.LongLength} bytes)");
+        }
+
         using var stream = new MemoryStream(bytes);
         using var archive = new ZipArchive(stream, ZipArchiveMode.Read);
 

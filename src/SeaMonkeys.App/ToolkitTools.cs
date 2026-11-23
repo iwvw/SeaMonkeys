@@ -10,6 +10,7 @@ public static class ToolkitTools
 {
     private const string ReleaseTag = "v1.0.1";
     private const string ToolsFileName = "wows_toolkit_tools_v1.0.1_win64.zip";
+    private const long MaxToolsZipBytes = 128L * 1024 * 1024;
 
     public const string MinimapRenderer = "minimap_renderer.exe";
     public const string WowsUnpack = "wowsunpack.exe";
@@ -57,6 +58,18 @@ public static class ToolkitTools
             using var http = new HttpClient { Timeout = TimeSpan.FromMinutes(10) };
             http.DefaultRequestHeaders.UserAgent.ParseAdd("SeaMonkeys");
             byte[] bytes = await http.GetByteArrayAsync(downloadUrl, token);
+
+            if (bytes.Length < 2 || bytes[0] != 0x50 || bytes[1] != 0x4B)
+            {
+                log?.Report("下载内容不是有效的 zip,已中止");
+                return false;
+            }
+
+            if (bytes.LongLength > MaxToolsZipBytes)
+            {
+                log?.Report("工具包体积异常,已中止");
+                return false;
+            }
 
             log?.Report("解压工具…");
 
