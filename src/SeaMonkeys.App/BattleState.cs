@@ -177,6 +177,7 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
 
     private int loadGeneration;
     private CancellationTokenSource? loadCts;
+    private string? lastReplayPath;
     private Server lastServer = Server.Auto;
 
     /// <summary>每次对局数据（名单）就绪时自增，供视图判断是否需要重建卡片。</summary>
@@ -335,6 +336,7 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
         var cts = new CancellationTokenSource();
         loadCts = cts;
         CancellationToken token = cts.Token;
+        lastReplayPath = replayPath;
 
         int generation = ++loadGeneration;
         IsBusy = true;
@@ -510,6 +512,18 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
 
     /// <summary>观察名单变化后刷新高亮。</summary>
     public void RefreshWatchHighlight() => RefreshRows();
+
+    /// <summary>按最新设置重新拉取当前对局(如切换代理/服务器/并发后立即生效)。无对局时返回 false。</summary>
+    public async Task<bool> ReloadCurrentAsync()
+    {
+        if (string.IsNullOrEmpty(lastReplayPath))
+        {
+            return false;
+        }
+
+        await LoadFileAsync(lastReplayPath);
+        return true;
+    }
 
     /// <summary>按当前设置重建两栏行(排序/高亮等设置变更后刷新)。</summary>
     public void RefreshRows()

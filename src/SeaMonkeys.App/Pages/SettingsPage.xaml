@@ -73,9 +73,17 @@
                         </controls:SettingsExpander.HeaderIcon>
                         <controls:SettingsExpander.Items>
                             <controls:SettingsCard Description="留空则直连各区域接口；填写后所有请求经该地址转发" Header="代理地址">
-                                <TextBox x:Name="ProxyBox" Width="360"
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBox x:Name="ProxyBox" Width="300"
                                          PlaceholderText="例如 https://proxy.example.com"
-                                         TextChanged="Proxy_Changed" />
+                                             TextChanged="Proxy_Changed" />
+                                    <Button x:Name="ProxyResetButton" Content="恢复默认"
+                                            ToolTipService.ToolTip="恢复为内置默认代理地址"
+                                            Click="ResetProxy_Click" />
+                                    <Button x:Name="ProxyReloadButton" Content="立即生效"
+                                            ToolTipService.ToolTip="按当前设置重新拉取当前对局"
+                                            Click="ReloadNow_Click" />
+                                </StackPanel>
                             </controls:SettingsCard>
                             <controls:SettingsCard Description="每个请求之间的间隔，用于避免触发限流" Header="请求间隔 (ms)">
                                 <TextBox x:Name="DelayBox" Width="120" TextChanged="Delay_Changed" />
@@ -95,9 +103,14 @@
                                 <TextBlock x:Name="CatalogVersionText" VerticalAlignment="Center" />
                             </controls:SettingsCard>
                             <controls:SettingsCard Description="留空则不更新；填写后可静默下载新船名表" Header="更新地址">
-                                <TextBox x:Name="CatalogUrlBox" Width="360"
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBox x:Name="CatalogUrlBox" Width="300"
                                          PlaceholderText="例如 https://example.com/ships.json"
                                          TextChanged="CatalogUrl_Changed" />
+                                    <Button x:Name="CatalogResetButton" Content="恢复默认"
+                                            ToolTipService.ToolTip="恢复为内置默认更新地址"
+                                            Click="ResetCatalogUrl_Click" />
+                                </StackPanel>
                             </controls:SettingsCard>
                             <controls:SettingsCard x:Name="CatalogUpdateCard"
                                                    Description="立即从更新地址下载最新船名表" Header="立即更新">
@@ -121,9 +134,14 @@
                         </controls:SettingsExpander.HeaderIcon>
                         <controls:SettingsExpander.Items>
                             <controls:SettingsCard Description="GitHub 下载加速前缀，留空则直连 github.com" Header="下载加速">
-                                <TextBox x:Name="AcceleratorBox" Width="360"
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBox x:Name="AcceleratorBox" Width="300"
                                          PlaceholderText="例如 https://ghfast.top/"
                                          TextChanged="Accelerator_Changed" />
+                                    <Button x:Name="AcceleratorResetButton" Content="恢复默认"
+                                            ToolTipService.ToolTip="恢复为内置默认加速前缀"
+                                            Click="ResetAccelerator_Click" />
+                                </StackPanel>
                             </controls:SettingsCard>
                             <controls:SettingsCard Description="minimap_renderer.exe 的路径，留空则使用内置下载目录" Header="渲染工具路径">
                                 <StackPanel Orientation="Horizontal" Spacing="8">

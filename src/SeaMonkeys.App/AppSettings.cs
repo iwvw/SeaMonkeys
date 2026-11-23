@@ -27,6 +27,8 @@ public sealed class AppSettings
 
     public const string DefaultShipCatalogUrl = "https://momomi.dmuk.org/ships.json";
 
+    public const string DefaultGitHubAccelerator = "https://ghfast.top/";
+
     private const string LegacyShipCatalogUrl = "https://lxdev.org/aperadar/updateinfo/";
 
     private const int LegacyParallelRequests = 12;
@@ -73,7 +75,7 @@ public sealed class AppSettings
     public string ShipCatalogUrl { get; set; } = DefaultShipCatalogUrl;
 
     /// <summary>GitHub 下载加速前缀。留空则直连 github.com。下载工具包时拼接在该地址之后。</summary>
-    public string GitHubAccelerator { get; set; } = "https://ghfast.top/";
+    public string GitHubAccelerator { get; set; } = DefaultGitHubAccelerator;
 
     /// <summary>回放渲染工具（minimap_renderer.exe）路径。留空则在用户数据目录 tools/ 下查找。</summary>
     public string RendererToolPath { get; set; } = string.Empty;

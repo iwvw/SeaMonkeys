@@ -196,6 +196,36 @@ public sealed partial class SettingsPage : Page
         AppSettings.Current.Save();
     }
 
+    private void ResetProxy_Click(object sender, RoutedEventArgs e)
+    {
+        ProxyBox.Text = AppSettings.DefaultProxyBaseUrl;
+        AppSettings.Current.ProxyBaseUrl = AppSettings.DefaultProxyBaseUrl;
+        AppSettings.Current.Save();
+    }
+
+    private void ResetCatalogUrl_Click(object sender, RoutedEventArgs e)
+    {
+        CatalogUrlBox.Text = AppSettings.DefaultShipCatalogUrl;
+        AppSettings.Current.ShipCatalogUrl = AppSettings.DefaultShipCatalogUrl;
+        AppSettings.Current.Save();
+    }
+
+    private void ResetAccelerator_Click(object sender, RoutedEventArgs e)
+    {
+        AcceleratorBox.Text = AppSettings.DefaultGitHubAccelerator;
+        AppSettings.Current.GitHubAccelerator = AppSettings.DefaultGitHubAccelerator;
+        AppSettings.Current.Save();
+    }
+
+    private async void ReloadNow_Click(object sender, RoutedEventArgs e)
+    {
+        bool reloaded = await BattleState.Current.ReloadCurrentAsync();
+        if (!reloaded)
+        {
+            NotificationService.Warn("当前没有已加载的对局,先导入回放或等待观察加载");
+        }
+    }
+
     private void Delay_Changed(object sender, TextChangedEventArgs e)
     {
         if (syncing) return;
