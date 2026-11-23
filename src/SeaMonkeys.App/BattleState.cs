@@ -84,7 +84,7 @@ public sealed class ParticipantRow
             Component = ok ? GradeText(GradeOf(totalWr, s.Battles)) : "-",
             Grade = ok ? GradeOf(totalWr, s.Battles) : "-",
             AvgDamage = ok ? s.AvgDamage.ToString("0", CultureInfo.InvariantCulture) : "-",
-            State = ok ? string.Empty : s.IsHidden ? "隐藏档案" : "无数据",
+            State = ok ? string.Empty : s.IsHidden ? "隐藏档案" : s.IsError ? "获取失败" : "无数据",
             WeightedValue = ok ? wr : -1,
             TypeOrder = ShipCatalog.Current.GetTypeOrder(p.ShipId),
             TierValue = ShipCatalog.Current.GetTier(p.ShipId),
@@ -419,7 +419,16 @@ public sealed class BattleState : System.ComponentModel.INotifyPropertyChanged
 
             SetState($"服务器 {server.ToDisplayName()} · 完成", Summary, busy: false, progress: 1);
             SaveHistory(battle, server, mapLabel, modeLabel, replayPath);
-            NotificationService.Success($"已加载 {mapLabel} · {battle.Participants.Count} 人");
+
+            int failedCount = battle.Participants.Count(p => p.Statistics.IsError);
+            if (failedCount > 0)
+            {
+                NotificationService.Warn($"已加载 {mapLabel},但 {failedCount} 名玩家战绩获取失败,可点「最新」重试");
+            }
+            else
+            {
+                NotificationService.Success($"已加载 {mapLabel} · {battle.Participants.Count} 人");
+            }
             ClearErrorLog();
             TrimWorkingSet();
         }

@@ -9,6 +9,9 @@ public sealed class BattleIntake
 {
     private const int ProbeSampleCount = 3;
 
+    /// <summary>整批战绩获取的最大轮次数(含首次),用于对冲瞬时网络失败。</summary>
+    private const int MaxEnrichPasses = 4;
+
     private readonly VortexStatsSource source;
     private readonly SeaMonkeysSettings settings;
     private readonly ServerResolver serverResolver = new();
@@ -98,11 +101,23 @@ public sealed class BattleIntake
         Server server,
         IProgress<int>? progress = null,
         IProgress<Participant>? onParticipantReady = null,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default,
+        int maxPasses = MaxEnrichPasses)
     {
-        int completed = 0;
+        int total = battle.Participants.Count;
+        int settledCount = 0;
+        var settled = new System.Collections.Concurrent.ConcurrentDictionary<Participant, byte>();
 
-        var tasks = battle.Participants.Select(async participant =>
+        var remaining = new List<Participant>(battle.Participants);
+        for (int pass = 0; pass < maxPasses && remaining.Count > 0; pass++)
+        {
+            if (pass > 0)
+            {
+                await Task.Delay(TimeSpan.FromSeconds(pass), cancellationToken);
+            }
+
+            var failed = new System.Collections.Concurrent.ConcurrentBag<Participant>();
+            var tasks = remaining.Select(async participant =>
         {
             try
             {
@@ -124,20 +139,23 @@ public sealed class BattleIntake
             }
             catch
             {
-                if (!participant.Statistics.IsAvailable)
-                {
-                    participant.Statistics = PlayerStatistics.Unavailable;
-                }
+                participant.Statistics = PlayerStatistics.RequestFailed;
+                failed.Add(participant);
             }
             finally
             {
-                progress?.Report(Interlocked.Increment(ref completed));
-            }
+                if (settled.TryAdd(participant, 0))
+                {
+                    progress?.Report(Interlocked.Increment(ref settledCount));
+                }
 
-            onParticipantReady?.Report(participant);
+                onParticipantReady?.Report(participant);
+            }
         });
 
         await Task.WhenAll(tasks);
+            remaining = failed.ToList();
+        }
     }
 
     private async Task EnrichParticipantAsync(

@@ -27,6 +27,9 @@ public sealed record PlayerStatistics
     public bool IsHidden { get; init; }
     public bool IsAvailable { get; init; }
 
+    /// <summary>请求失败(网络/上游错误),区别于「查无此人」。</summary>
+    public bool IsError { get; init; }
+
     public double Battles { get; init; }
     public double Wins { get; init; }
     public double DamageDealt { get; init; }
@@ -62,4 +65,7 @@ public sealed record PlayerStatistics
     public static PlayerStatistics Unavailable { get; } = new() { IsAvailable = false };
 
     public static PlayerStatistics Hidden { get; } = new() { IsAvailable = false, IsHidden = true };
+
+    /// <summary>多次重试后仍因网络/上游错误失败,供上层做整局重试与提示。</summary>
+    public static PlayerStatistics RequestFailed { get; } = new() { IsAvailable = false, IsError = true };
 }
