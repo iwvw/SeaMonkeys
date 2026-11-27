@@ -21,8 +21,9 @@
 
         <Grid Grid.Row="1" ColumnSpacing="16" Padding="0,0,0,24">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="380" />
+                <ColumnDefinition Width="360" />
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="300" />
             </Grid.ColumnDefinitions>
 
             <!-- 参数面板 -->
@@ -55,33 +56,11 @@
                                        HorizontalAlignment="Stretch"
                                        Minimum="0" Maximum="4096" SpinButtonPlacementMode="Compact"
                                        ValueChanged="MaxSize_Changed" />
-                        </StackPanel>
-                    </Grid>
-
-                    <Grid Style="{StaticResource CardStyle}" Padding="16">
-                        <StackPanel Spacing="4">
-                            <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="显示元素" Margin="0,0,0,6" />
-                            <Grid ColumnSpacing="12" RowSpacing="4">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" />
-                                    <ColumnDefinition Width="*" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-
-                                <ToggleSwitch Grid.Row="0" Grid.Column="0" x:Name="PlayerNamesSwitch" Header="玩家名" Toggled="Toggle_Changed" />
-                                <ToggleSwitch Grid.Row="0" Grid.Column="1" x:Name="CapturePointsSwitch" Header="占点区域" Toggled="Toggle_Changed" />
-                                <ToggleSwitch Grid.Row="1" Grid.Column="0" x:Name="BuildingsSwitch" Header="建筑标记" Toggled="Toggle_Changed" />
-                                <ToggleSwitch Grid.Row="1" Grid.Column="1" x:Name="CameraSwitch" Header="相机方向" Toggled="Toggle_Changed" />
-                                <ToggleSwitch Grid.Row="2" Grid.Column="0" x:Name="ArmamentSwitch" Header="武器/弹药" Toggled="Toggle_Changed" />
-                                <ToggleSwitch Grid.Row="2" Grid.Column="1" x:Name="KillFeedSwitch" Header="击杀信息" Toggled="Toggle_Changed" />
-                                <ToggleSwitch Grid.Row="3" Grid.Column="0" x:Name="SpeedTrailsSwitch" Header="航速轨迹" Toggled="Toggle_Changed" />
-                                <ToggleSwitch Grid.Row="3" Grid.Column="1" x:Name="ShipConfigSwitch" Header="射程/点亮圈" Toggled="Toggle_Changed" />
-                            </Grid>
+                            <NumberBox x:Name="VideoLengthBox" Header="视频时长 (秒,越短渲染越快)"
+                                       HorizontalAlignment="Stretch"
+                                       Minimum="1" Maximum="600" SmallChange="10" LargeChange="60"
+                                       SpinButtonPlacementMode="Compact"
+                                       ValueChanged="VideoLength_Changed" />
                         </StackPanel>
                     </Grid>
 
@@ -91,6 +70,11 @@
                             <TextBlock x:Name="ToolStatusText" Style="{StaticResource CaptionTextBlockStyle}"
                                        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                                        TextWrapping="Wrap" Text="检测中…" />
+                            <ToggleSwitch x:Name="DataCacheSwitch" Header="加速缓存" Toggled="Toggle_Changed" />
+                            <TextBlock Style="{StaticResource CaptionTextBlockStyle}"
+                                       Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                       TextWrapping="Wrap"
+                                       Text="预提取游戏数据以跳过每次渲染的重复解析。首次约 30 秒、约占 350MB/版本。" />
                             <Button x:Name="DownloadToolButton" Content="下载渲染工具"
                                     HorizontalAlignment="Stretch" Click="DownloadTool_Click" />
                         </StackPanel>
@@ -158,6 +142,61 @@
                     </StackPanel>
                 </StackPanel>
             </Grid>
+
+            <!-- 显示元素 -->
+            <ScrollViewer Grid.Column="2" VerticalScrollBarVisibility="Auto"
+                          HorizontalScrollMode="Disabled" HorizontalScrollBarVisibility="Disabled">
+                <Grid Style="{StaticResource CardStyle}" Padding="16" VerticalAlignment="Top">
+                    <StackPanel Spacing="4">
+                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="显示元素" Margin="0,0,0,8" />
+                        <Grid ColumnSpacing="8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="玩家名" VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Row="0" Grid.Column="1" x:Name="PlayerNamesSwitch" MinWidth="0" Toggled="Toggle_Changed" />
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="舰船名" VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Row="1" Grid.Column="1" x:Name="ShipNamesSwitch" MinWidth="0" Toggled="Toggle_Changed" />
+                            <TextBlock Grid.Row="2" Grid.Column="0" Text="中文舰船名" VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Row="2" Grid.Column="1" x:Name="ChineseNamesSwitch" MinWidth="0" Toggled="Toggle_Changed" />
+                            <TextBlock Grid.Row="3" Grid.Column="0" Text="占点区域" VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Row="3" Grid.Column="1" x:Name="CapturePointsSwitch" MinWidth="0" Toggled="Toggle_Changed" />
+                            <TextBlock Grid.Row="4" Grid.Column="0" Text="建筑标记" VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Row="4" Grid.Column="1" x:Name="BuildingsSwitch" MinWidth="0" Toggled="Toggle_Changed" />
+                            <TextBlock Grid.Row="5" Grid.Column="0" Text="相机方向" VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Row="5" Grid.Column="1" x:Name="CameraSwitch" MinWidth="0" Toggled="Toggle_Changed" />
+                            <TextBlock Grid.Row="6" Grid.Column="0" Text="武器/弹药" VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Row="6" Grid.Column="1" x:Name="ArmamentSwitch" MinWidth="0" Toggled="Toggle_Changed" />
+                            <TextBlock Grid.Row="7" Grid.Column="0" Text="击杀信息" VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Row="7" Grid.Column="1" x:Name="KillFeedSwitch" MinWidth="0" Toggled="Toggle_Changed" />
+                            <TextBlock Grid.Row="8" Grid.Column="0" Text="航速轨迹" VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Row="8" Grid.Column="1" x:Name="SpeedTrailsSwitch" MinWidth="0" Toggled="Toggle_Changed" />
+                            <TextBlock Grid.Row="9" Grid.Column="0" Text="射程/点亮圈" VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Row="9" Grid.Column="1" x:Name="ShipConfigSwitch" MinWidth="0" Toggled="Toggle_Changed" />
+                            <TextBlock Grid.Row="10" Grid.Column="0" Text="数据面板" VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Row="10" Grid.Column="1" x:Name="StatsPanelSwitch" MinWidth="0" Toggled="Toggle_Changed" />
+                            <TextBlock Grid.Row="11" Grid.Column="0" Text="聊天记录" VerticalAlignment="Center" />
+                            <ToggleSwitch Grid.Row="11" Grid.Column="1" x:Name="ChatSwitch" MinWidth="0" Toggled="Toggle_Changed" />
+                        </Grid>
+                    </StackPanel>
+                </Grid>
+            </ScrollViewer>
         </Grid>
     </Grid>
 </Page>

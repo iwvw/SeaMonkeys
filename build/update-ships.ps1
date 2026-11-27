@@ -30,7 +30,7 @@ if ([string]::IsNullOrWhiteSpace($UnpackExe)) {
     $UnpackExe = Join-Path $env:TEMP "SeaMonkeys\wowsunpack.exe"
 }
 if (-not (Test-Path -LiteralPath $UnpackExe)) {
-    $toolsZipUrl = "https://github.com/landaire/wows-toolkit/releases/download/v1.0.1/wows_toolkit_tools_v1.0.1_win64.zip"
+    $toolsZipUrl = "https://github.com/landaire/wows-toolkit/releases/download/v1.1.2/wows_toolkit_tools_v1.1.2_win64.zip"
     if (-not [string]::IsNullOrWhiteSpace($Accelerator)) {
         $toolsZipUrl = "$Accelerator$toolsZipUrl"
     }

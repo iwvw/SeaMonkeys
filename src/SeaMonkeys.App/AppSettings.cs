@@ -86,8 +86,26 @@ public sealed class AppSettings
     /// <summary>渲染目标体积上限（MiB），0 表示不限制（走默认码率）。</summary>
     public int RenderMaxSizeMiB { get; set; } = 60;
 
+    /// <summary>渲染视频时长(秒),越短帧数越少、渲染越快。范围 1-600。</summary>
+    public int RenderVideoLengthSeconds { get; set; } = 60;
+
+    /// <summary>是否预提取游戏数据以加速渲染(首次约 350MB/版本)。</summary>
+    public bool RenderUseDataCache { get; set; } = true;
+
     /// <summary>渲染是否显示玩家名。</summary>
     public bool RenderShowPlayerNames { get; set; } = true;
+
+    /// <summary>渲染是否显示舰船名。</summary>
+    public bool RenderShowShipNames { get; set; } = true;
+
+    /// <summary>渲染是否显示右侧数据面板。</summary>
+    public bool RenderShowStatsPanel { get; set; } = true;
+
+    /// <summary>渲染是否显示聊天记录。</summary>
+    public bool RenderShowChat { get; set; } = true;
+
+    /// <summary>渲染舰船名是否使用中文(zh_sg 本地化);不可用时自动回退英文。</summary>
+    public bool RenderChineseShipNames { get; set; } = true;
 
     /// <summary>渲染是否显示占点。</summary>
     public bool RenderShowCapturePoints { get; set; } = true;

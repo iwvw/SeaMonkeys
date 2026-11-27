@@ -8,12 +8,14 @@ namespace SeaMonkeys.App;
 /// </summary>
 public static class ToolkitTools
 {
-    private const string ReleaseTag = "v1.0.1";
-    private const string ToolsFileName = "wows_toolkit_tools_v1.0.1_win64.zip";
+    private const string ReleaseTag = "v1.1.2";
+    private const string ToolsFileName = "wows_toolkit_tools_v1.1.2_win64.zip";
+    private const string VersionFileName = "tools-version.txt";
     private const long MaxToolsZipBytes = 128L * 1024 * 1024;
 
     public const string MinimapRenderer = "minimap_renderer.exe";
     public const string WowsUnpack = "wowsunpack.exe";
+    public const string WowsDataMgr = "wows-data-mgr.exe";
 
     private static readonly string ToolsDirectory = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
@@ -39,7 +41,22 @@ public static class ToolkitTools
         }
 
         string bundled = Path.Combine(ToolsDirectory, exeName);
-        return File.Exists(bundled) ? bundled : null;
+        return File.Exists(bundled) && IsCurrentToolset() ? bundled : null;
+    }
+
+    /// <summary>本地工具是否为当前版本;旧版本视为未安装,以便重新下载升级。</summary>
+    private static bool IsCurrentToolset()
+    {
+        try
+        {
+            string marker = Path.Combine(ToolsDirectory, VersionFileName);
+            return File.Exists(marker)
+                && File.ReadAllText(marker).Trim().Equals(ReleaseTag, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
     }
 
     /// <summary>下载并安装整个工具包，返回日志。</summary>
@@ -79,7 +96,8 @@ public static class ToolkitTools
             {
                 foreach (ZipArchiveEntry entry in archive.Entries)
                 {
-                    if (!entry.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                    if (!entry.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase)
+                        && !entry.Name.Equals("game_versions.toml", StringComparison.OrdinalIgnoreCase))
                     {
                         continue;
                     }
@@ -91,6 +109,11 @@ public static class ToolkitTools
             }
 
             log?.Report(extracted > 0 ? "安装完成" : "压缩包中未找到可执行文件");
+            if (extracted > 0)
+            {
+                File.WriteAllText(Path.Combine(ToolsDirectory, VersionFileName), ReleaseTag);
+            }
+
             return extracted > 0;
         }
         catch (Exception ex)

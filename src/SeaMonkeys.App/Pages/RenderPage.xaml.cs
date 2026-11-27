@@ -13,6 +13,7 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
     private string? selectedReplayPath;
     private string? lastResultPath;
     private CancellationTokenSource? cts;
+    private DateTimeOffset renderStartedAt;
     private readonly List<HistoryOption> historyOptions = new();
 
     public RenderPage()
@@ -32,7 +33,11 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
         var s = AppSettings.Current;
         CodecBox.SelectedIndex = Math.Clamp(s.RenderCodec, 0, 2);
         MaxSizeBox.Value = s.RenderMaxSizeMiB;
+        VideoLengthBox.Value = s.RenderVideoLengthSeconds;
+        DataCacheSwitch.IsOn = s.RenderUseDataCache;
         PlayerNamesSwitch.IsOn = s.RenderShowPlayerNames;
+        ShipNamesSwitch.IsOn = s.RenderShowShipNames;
+        ChineseNamesSwitch.IsOn = s.RenderChineseShipNames;
         CapturePointsSwitch.IsOn = s.RenderShowCapturePoints;
         BuildingsSwitch.IsOn = s.RenderShowBuildings;
         CameraSwitch.IsOn = s.RenderShowCameraDirection;
@@ -40,6 +45,8 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
         KillFeedSwitch.IsOn = s.RenderShowKillFeed;
         SpeedTrailsSwitch.IsOn = s.RenderShowSpeedTrails;
         ShipConfigSwitch.IsOn = s.RenderShowShipConfig;
+        StatsPanelSwitch.IsOn = s.RenderShowStatsPanel;
+        ChatSwitch.IsOn = s.RenderShowChat;
 
         historyOptions.Clear();
         foreach (BattleHistoryEntry entry in BattleHistoryRepository.Current.Entries)
@@ -86,7 +93,7 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
         }
         else
         {
-            ToolStatusText.Text = "未安装。渲染工具约 24MB，从 GitHub 下载（受加速前缀影响）。";
+            ToolStatusText.Text = "未安装。渲染工具约 27MB，从 GitHub 下载（受加速前缀影响）。";
             DownloadToolButton.Content = "下载渲染工具";
         }
     }
@@ -187,6 +194,18 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
         InvalidatePreview();
     }
 
+    private void VideoLength_Changed(NumberBox sender, NumberBoxValueChangedEventArgs args)
+    {
+        if (syncing || double.IsNaN(args.NewValue))
+        {
+            return;
+        }
+
+        AppSettings.Current.RenderVideoLengthSeconds = (int)args.NewValue;
+        AppSettings.Current.Save();
+        InvalidatePreview();
+    }
+
     private void Toggle_Changed(object sender, RoutedEventArgs e)
     {
         if (syncing)
@@ -196,6 +215,8 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
 
         var s = AppSettings.Current;
         s.RenderShowPlayerNames = PlayerNamesSwitch.IsOn;
+        s.RenderShowShipNames = ShipNamesSwitch.IsOn;
+        s.RenderChineseShipNames = ChineseNamesSwitch.IsOn;
         s.RenderShowCapturePoints = CapturePointsSwitch.IsOn;
         s.RenderShowBuildings = BuildingsSwitch.IsOn;
         s.RenderShowCameraDirection = CameraSwitch.IsOn;
@@ -203,6 +224,9 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
         s.RenderShowKillFeed = KillFeedSwitch.IsOn;
         s.RenderShowSpeedTrails = SpeedTrailsSwitch.IsOn;
         s.RenderShowShipConfig = ShipConfigSwitch.IsOn;
+        s.RenderShowStatsPanel = StatsPanelSwitch.IsOn;
+        s.RenderShowChat = ChatSwitch.IsOn;
+        s.RenderUseDataCache = DataCacheSwitch.IsOn;
         s.Save();
         InvalidatePreview();
     }
@@ -262,9 +286,12 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
         busy = true;
         previewValid = false;
         UpdateActionState();
-        RenderStatusText.Text = "渲染预览帧…";
+        RenderProgressBar.IsIndeterminate = true;
+        RenderProgressBar.Value = 0;
+        RenderProgressBar.Visibility = Visibility.Visible;
+        RenderStatusText.Text = "准备预览…";
         PreviewPlaceholder.Visibility = Visibility.Visible;
-        PreviewPlaceholder.Text = "正在渲染预览…";
+        PreviewPlaceholder.Text = "正在加载游戏数据并渲染预览帧…";
         PreviewImage.Visibility = Visibility.Collapsed;
 
         string dir = Path.Combine(
@@ -295,12 +322,22 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
         string? png;
         try
         {
-            var log = new Progress<string>(text => lastLog = text);
+            var log = new Progress<string>(text =>
+            {
+                lastLog = text;
+                string? friendly = FriendlyLog(text);
+                if (friendly is not null)
+                {
+                    RenderStatusText.Text = friendly;
+                }
+            });
             png = await ReplayRenderer.PreviewAsync(replay, dir, log);
         }
         catch (Exception ex)
         {
             busy = false;
+            RenderProgressBar.Visibility = Visibility.Collapsed;
+            RenderProgressBar.IsIndeterminate = false;
             PreviewPlaceholder.Text = "预览失败";
             PreviewPlaceholder.Visibility = Visibility.Visible;
             RenderStatusText.Text = $"预览失败:{ex.Message}";
@@ -310,6 +347,8 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
         }
 
         busy = false;
+        RenderProgressBar.Visibility = Visibility.Collapsed;
+        RenderProgressBar.IsIndeterminate = false;
 
         if (png is not null)
         {
@@ -382,16 +421,26 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
 
         cts = new CancellationTokenSource();
         busy = true;
+        renderStartedAt = DateTimeOffset.Now;
         UpdateActionState();
         ResultPanel.Visibility = Visibility.Collapsed;
+        RenderProgressBar.IsIndeterminate = false;
         RenderProgressBar.Visibility = Visibility.Visible;
         RenderProgressBar.Value = 0;
-        RenderStatusText.Text = "开始渲染…";
+        RenderStatusText.Text = "开始渲染…(先加载游戏数据,约 15 秒)";
 
         var progress = new Progress<RenderProgress>(p =>
         {
             RenderProgressBar.Value = p.Fraction;
-            RenderStatusText.Text = $"{StageLabel(p.Stage)} {p.Frame}/{p.Total}（{p.Fraction:P0}）";
+            TimeSpan elapsed = DateTimeOffset.Now - renderStartedAt;
+            string text = $"{StageLabel(p.Stage)} {p.Frame}/{p.Total}（{p.Fraction:P0}）· 已用 {FormatDuration(elapsed)}";
+            if (p.Fraction > 0.02 && p.Fraction < 1)
+            {
+                double remaining = elapsed.TotalSeconds * (1 - p.Fraction) / p.Fraction;
+                text += $" · 剩余约 {FormatDuration(TimeSpan.FromSeconds(remaining))}";
+            }
+
+            RenderStatusText.Text = text;
         });
 
         string? mp4 = await ReplayRenderer.RenderAsync(replay, file.Path, progress, null, cts.Token);
@@ -507,6 +556,60 @@ public sealed partial class RenderPage : Page, INotifyPropertyChanged
         "video" => "视频",
         _ => stage,
     };
+
+    /// <summary>把耗时格式化为中文短文本。</summary>
+    private static string FormatDuration(TimeSpan value)
+    {
+        if (value < TimeSpan.Zero)
+        {
+            value = TimeSpan.Zero;
+        }
+
+        if (value.TotalSeconds < 60)
+        {
+            return $"{(int)value.TotalSeconds} 秒";
+        }
+
+        return value.TotalHours >= 1
+            ? $"{(int)value.TotalHours} 时 {value.Minutes} 分"
+            : $"{value.Minutes} 分 {value.Seconds} 秒";
+    }
+
+    /// <summary>把渲染工具的日志行映射为可读的预览阶段提示。</summary>
+    private static string? FriendlyLog(string line)
+    {
+        if (line.Contains("Dumping build", StringComparison.OrdinalIgnoreCase))
+        {
+            return "提取游戏数据(首次约 30 秒)…";
+        }
+
+        if (line.Contains("Parsing replay", StringComparison.OrdinalIgnoreCase))
+        {
+            return "解析回放…";
+        }
+
+        if (line.Contains("Loading game data", StringComparison.OrdinalIgnoreCase))
+        {
+            return "加载游戏数据…";
+        }
+
+        if (line.Contains("Loading game params", StringComparison.OrdinalIgnoreCase))
+        {
+            return "解析游戏参数(首次约 15 秒)…";
+        }
+
+        if (line.Contains("Loading entity specs", StringComparison.OrdinalIgnoreCase))
+        {
+            return "加载舰船定义…";
+        }
+
+        if (line.Contains("Loading fonts and icons", StringComparison.OrdinalIgnoreCase))
+        {
+            return "加载字体与图标…";
+        }
+
+        return null;
+    }
 
     private sealed record HistoryOption(string Display, string ReplayPath)
     {

@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Text.RegularExpressions;
+using SeaMonkeys.Core.Parsing;
 using SeaMonkeys.Core.Servers;
 
 namespace SeaMonkeys.App;
@@ -41,8 +42,8 @@ public static class ReplayRenderer
 
         Directory.CreateDirectory(outputDirectory);
 
-        string? game = ResolveGamePath(replayPath);
-        if (game is null)
+        List<string>? dataArgs = await ResolveDataArgsAsync(replayPath, log, token);
+        if (dataArgs is null)
         {
             log?.Report("未找到游戏目录，请在设置中填写游戏路径");
             return null;
@@ -54,7 +55,7 @@ public static class ReplayRenderer
             string baseName = Path.Combine(outputDirectory, $"preview_{DateTime.Now:HHmmssfff}_{frame}");
             string expected = baseName + ".png";
 
-            var args = new List<string> { "--game", game, "--dump-frame", frame, "-o", baseName };
+            var args = new List<string>(dataArgs) { "--dump-frame", frame, "-o", baseName };
             args.AddRange(BuildCommonArgs());
             args.Add(replayPath);
 
@@ -83,15 +84,20 @@ public static class ReplayRenderer
         CancellationToken token = default)
     {
         string? tool = ToolPath;
-        string? game = ResolveGamePath(replayPath);
-        if (tool is null || game is null)
+        if (tool is null)
         {
             return null;
         }
 
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
 
-        var args = new List<string> { "--game", game, "--no-progress", "-o", outputPath };
+        List<string>? dataArgs = await ResolveDataArgsAsync(replayPath, log, token);
+        if (dataArgs is null)
+        {
+            return null;
+        }
+
+        var args = new List<string>(dataArgs) { "--no-progress", "-o", outputPath };
         args.AddRange(BuildCommonArgs());
         args.Add(replayPath);
 
@@ -121,9 +127,34 @@ public static class ReplayRenderer
             yield return s.RenderMaxSizeMiB.ToString();
         }
 
+        if (s.RenderVideoLengthSeconds > 0)
+        {
+            yield return "--video-length";
+            yield return s.RenderVideoLengthSeconds.ToString();
+        }
+
         if (s.RenderShowPlayerNames)
         {
             yield return "--show-player-names";
+        }
+        else
+        {
+            yield return "--no-player-names";
+        }
+
+        if (!s.RenderShowShipNames)
+        {
+            yield return "--no-ship-names";
+        }
+
+        if (!s.RenderShowStatsPanel)
+        {
+            yield return "--no-stats-panel";
+        }
+
+        if (!s.RenderShowChat)
+        {
+            yield return "--no-chat";
         }
 
         if (!s.RenderShowCapturePoints)
@@ -166,7 +197,81 @@ public static class ReplayRenderer
     /// 定位游戏根目录：优先设置里的路径，其次从回放路径反推（回放位于 &lt;game&gt;\replays\...），
     /// 最后才用注册表探测（Steam 版通常探测不到）。
     /// </summary>
+    /// <summary>构造数据源参数:优先预提取缓存,否则回退 --game(含中文影子目录)。</summary>
+    private static async Task<List<string>?> ResolveDataArgsAsync(
+        string replayPath,
+        IProgress<string>? log,
+        CancellationToken token)
+    {
+        string? clientVersion = TryReadClientVersion(replayPath);
+        if (AppSettings.Current.RenderUseDataCache)
+        {
+            string? game = ResolveRealGamePath(replayPath);
+            string? build = ParseBuild(clientVersion);
+            if (game is not null && build is not null)
+            {
+                RenderCacheLocation? location = await GameDataCache.EnsureAsync(
+                    game, build, AppSettings.Current.RenderChineseShipNames, log, token);
+                if (location is { } found)
+                {
+                    var args = new List<string> { "--extracted-dir", found.ExtractedDir };
+                    if (found.OverrideDir is not null)
+                    {
+                        args.Add("--game-params-cache");
+                        args.Add(found.OverrideDir);
+                    }
+
+                    return args;
+                }
+            }
+        }
+
+        string? fallback = ResolveGamePath(replayPath);
+        return fallback is null ? null : new List<string> { "--game", fallback };
+    }
+
+    private static string? ParseBuild(string? clientVersion)
+    {
+        if (string.IsNullOrWhiteSpace(clientVersion))
+        {
+            return null;
+        }
+
+        string[] parts = clientVersion.Split(
+            ',',
+            StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        return parts.Length >= 4 && uint.TryParse(parts[^1], out _) ? parts[^1] : null;
+    }
+
     private static string? ResolveGamePath(string? replayPath)
+    {
+        string? game = ResolveRealGamePath(replayPath);
+        if (game is null || !AppSettings.Current.RenderChineseShipNames)
+        {
+            return game;
+        }
+
+        return GameDataShadow.EnsureChinese(game, TryReadClientVersion(replayPath)) ?? game;
+    }
+
+    private static string? TryReadClientVersion(string? replayPath)
+    {
+        if (string.IsNullOrWhiteSpace(replayPath) || !File.Exists(replayPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            return new ArenaInfoParser().Parse(replayPath).ClientVersion;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private static string? ResolveRealGamePath(string? replayPath)
     {
         string game = AppSettings.Current.GamePath;
         if (!string.IsNullOrWhiteSpace(game) && Directory.Exists(game))
